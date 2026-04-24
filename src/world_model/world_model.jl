@@ -1,6 +1,13 @@
 
 include("shapes.jl")
 
+export WorldModel,
+    WorldState,
+    StaticObject,
+    DynamicObject,
+    StaticState,
+    DynamicState
+
 abstract type MotionModel end
 abstract type GraphicsModel end
 
@@ -36,6 +43,7 @@ end
 struct WorldModel
     motion  ::MotionModel
     graphics::GraphicsModel
+    dimensions::S2V
 end
 
 struct StaticState
@@ -55,6 +63,11 @@ function DynamicState(prev::DynamicState)
 end
 
 import Base.getindex
+
+
+function Base.getindex(st::StaticState, i::Int)
+    st.objects[i]
+end
 
 function Base.getindex(st::DynamicState, i::Int)
     (st.objects[i], st.positions[i], st.velocities[i])
@@ -76,9 +89,10 @@ struct WorldState
     static::StaticState
 end
 
-nstatic(ws::WorldState) = length(static)
-ndynamic(ws::WorldState) = length(dynamic)
+nstatic(ws::WorldState) = length(ws.static)
+ndynamic(ws::WorldState) = length(ws.dynamic)
 nobjects(ws::WorldState) = nstatic(ws) + ndynamic(ws)
 
 include("motion.jl")
 include("graphics/graphics.jl")
+include("visuals.jl")

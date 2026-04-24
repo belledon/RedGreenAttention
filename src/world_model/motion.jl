@@ -1,4 +1,4 @@
-
+export BilliardBrownian
 
 struct BilliardBrownian <: MotionModel
     jitter::Float64

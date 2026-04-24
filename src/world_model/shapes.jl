@@ -1,11 +1,19 @@
 abstract type Shape end
 
 
-struct Circle
+struct Circle <: Shape
     radius::Float64
 end
 
-struct Rectangle
+const PI_HALF = pi / 2
+
+function bbox_iou(c::Circle)
+    # area = 2 * pi * c.radius * c.radius
+    # area / (4 * c.radius * c.radius)
+    PI_HALF
+end
+
+struct Rectangle <: Shape
     hw::Float64
     hh::Float64
     angle::Float64
@@ -13,8 +21,8 @@ end
 
 function bbox_iou(rect::Rectangle)
     area = 4 * rect.hw * rect.hh
-    aca = abs(cos(angle))
-    asa = abs(sin(angle))
+    aca = abs(cos(rect.angle))
+    asa = abs(sin(rect.angle))
     bbw = aca*2*rect.hw + asa*2*rect.hh
     bbh = asa*2*rect.hw + aca*2*rect.hh
     area / (bbw*bbh)

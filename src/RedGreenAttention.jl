@@ -1,5 +1,8 @@
 module RedGreenAttention
 
+using Gen
+using Luxor
+using GenRFS
 using StaticArrays
 using DocStringExtensions
 
