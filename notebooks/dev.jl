@@ -38,17 +38,44 @@ end
 # ╔═╡ a220ca7c-a89b-4444-bb4d-bd24aca8bc5e
 using RedGreenAttention: predict, render_mask
 
+# ╔═╡ d3b63cfc-4068-4c1b-92e3-531fd49e7b7e
+using RedGreenAttention: resolve_motion
+
+# ╔═╡ 9f5e8d46-c74b-4cc2-ac45-558e2c0c09fd
+using RedGreenAttention: distance
+
+# ╔═╡ e71f7fa9-0628-497e-967e-55499d0f2c1e
+using RedGreenAttention: resolve_collision
+
 # ╔═╡ 27efaaf7-0e78-43e7-96aa-04128f30bfee
 html"""
 <style>
     @media screen {
         main {
             margin: 0 auto;
-            max-width: 2500px;
+            max-width: 3000px;
             padding-left: max(200px, 10%);
             padding-right: max(200px, 10%);
         }
     }
+	pluto-output {
+    font-size: 1.2em; /* Adjust base text size */
+    font-family: "Your Font", sans-serif;
+	}
+
+pluto-output h1 {
+    font-size: 2.5rem; /* Adjust header sizes */
+}
+
+pluto-output h2 {
+    font-size: 2.0rem;
+}
+
+cm-editor .cm-scroller,
+.cm-editor .cm-content {
+    font-family: "Fira Code", monospace !important;
+    font-size: 16px !important; /* Adjust size here */
+}
 </style>
 """   
 
@@ -111,7 +138,7 @@ static = StaticState(
 # ╔═╡ ed426ae0-49cc-4ef9-a6aa-4b299c652761
 dynamic = DynamicState(
 	[DynamicObject(1, c, Float64(pi))],
-	[S2V(-30, 20)],
+	[S2V(-30, 45)],
 	[S2V(5, 0)]
 )
 
@@ -151,13 +178,19 @@ tr, _ = Gen.generate(world_model, (nframes, state, wm));
 # ╔═╡ 5ca74938-8057-4eca-9055-ca62d8ed15ad
 states = get_retval(tr);
 
+# ╔═╡ cdaab024-45c8-4d82-af23-cbe89fe28ccc
+# Reactive drawing function
+function animate_states(states, wm, frame)
+	state = states[frame]
+	paint_state(state, wm)
+end
+
 # ╔═╡ 891ebf38-5e8d-4348-b510-fb633949c3eb
 # Reactive drawing function
 function animate_trace(trace, frame)
 	_, _, wm = get_args(tr)
 	states = get_retval(trace)
-	state = states[frame]
-	paint_state(state, wm)
+	animate_states(states, wm, frame)
 end
 
 # ╔═╡ 82635ed3-5e8d-4a40-9637-e8b6cd642438
@@ -165,6 +198,75 @@ end
 
 # ╔═╡ bffb10ce-f30f-4d7d-89bb-029a3f8bb124
 animate_trace(tr, frames)
+
+# ╔═╡ 29eed906-3602-4ea1-8feb-38062c1eba62
+md"""
+
+### Debugging collision
+
+Looking at detection and resolution
+"""
+
+# ╔═╡ 354ac3ba-79fe-482c-92e5-3bc0c63a3e61
+function test_collision()
+
+	c = Circle(20.0)
+	r = Rectangle(50, 20, 0.)
+	
+	static = StaticState([StaticObject(S2V(0, 0), r, 0.0)])
+	dynamic = DynamicState(
+		[DynamicObject(1, c, Float64(pi))],
+		[S2V(-30, 50)],
+		[S2V(0, -5)]
+	)
+	state = WorldState(dynamic, static)
+	
+	dimensions = S2V(400, 400)
+	motion = BilliardBrownian(dimensions, 1.0, 0.0001)
+	states = Vector{WorldState}(undef, 10)
+	for t = 1:10
+		states[t] = state = resolve_motion(motion, state)
+	end
+
+	return states
+end
+
+# ╔═╡ d4201646-e2aa-438c-b307-eabd91811577
+test_states = test_collision();
+
+# ╔═╡ 5d83855c-d0f6-42f0-9592-544f16584a08
+@bind test_frames Slider(1:10, default=1, show_value=x->"  Frame $x")
+
+# ╔═╡ 1d4f979c-bc17-4e56-9593-834c67ed5e03
+animate_states(test_states, wm, test_frames)
+
+# ╔═╡ 1037869f-9e59-4f27-a938-9aeda621affd
+function test_distance()
+	c = Circle(20.0)
+	r = Rectangle(50, 20, 0.)
+	d = distance(c, r, S2V(-30, 40), S2V(0, 0))
+	@show d
+	return nothing
+end
+
+# ╔═╡ 4d8148b2-0899-4d45-bc7d-c6d739b8b54f
+test_distance()
+
+# ╔═╡ c2bb534d-7432-4a05-878b-dc18bec1127e
+function test_resolve_collision()
+	c = Circle(20.0)
+	r = Rectangle(50, 20, 0.)
+	d, a = distance(c, r, S2V(-30, 40), S2V(0, 0))
+
+	dimensions = S2V(400, 400)
+	motion = BilliardBrownian(dimensions, 1.0, 0.0001)
+	_, v = resolve_collision(motion, c, S2V(-30, 40), S2V(0, -5), a)
+	@show v
+	return nothing
+end
+
+# ╔═╡ 5dea973e-fff0-4e46-8b07-9f243aab00ae
+test_resolve_collision()
 
 # ╔═╡ Cell order:
 # ╟─27efaaf7-0e78-43e7-96aa-04128f30bfee
@@ -192,6 +294,19 @@ animate_trace(tr, frames)
 # ╠═c84c7f31-7751-4b9c-ba7c-ae4ddef133b0
 # ╠═d5ac5705-cbd9-4673-8257-8f6945540feb
 # ╠═5ca74938-8057-4eca-9055-ca62d8ed15ad
+# ╟─cdaab024-45c8-4d82-af23-cbe89fe28ccc
 # ╟─891ebf38-5e8d-4348-b510-fb633949c3eb
 # ╠═82635ed3-5e8d-4a40-9637-e8b6cd642438
-# ╟─bffb10ce-f30f-4d7d-89bb-029a3f8bb124
+# ╠═bffb10ce-f30f-4d7d-89bb-029a3f8bb124
+# ╟─29eed906-3602-4ea1-8feb-38062c1eba62
+# ╠═d3b63cfc-4068-4c1b-92e3-531fd49e7b7e
+# ╠═354ac3ba-79fe-482c-92e5-3bc0c63a3e61
+# ╠═d4201646-e2aa-438c-b307-eabd91811577
+# ╟─5d83855c-d0f6-42f0-9592-544f16584a08
+# ╠═1d4f979c-bc17-4e56-9593-834c67ed5e03
+# ╠═9f5e8d46-c74b-4cc2-ac45-558e2c0c09fd
+# ╠═1037869f-9e59-4f27-a938-9aeda621affd
+# ╠═4d8148b2-0899-4d45-bc7d-c6d739b8b54f
+# ╠═e71f7fa9-0628-497e-967e-55499d0f2c1e
+# ╠═c2bb534d-7432-4a05-878b-dc18bec1127e
+# ╠═5dea973e-fff0-4e46-8b07-9f243aab00ae

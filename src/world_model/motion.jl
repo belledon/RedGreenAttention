@@ -86,7 +86,7 @@ function distance(a::Circle, b::Rectangle, a_pos::S2V, b_pos::S2V)
     nearest_y = clamp(ly, -b.hh, b.hh)
 
     # 4. distance to the closest point within the a's radius
-    dist = sqrt((lx - nearest_x)^2 + (ly - nearest_y)^2)
+    dist = sqrt((lx - nearest_x)^2 + (ly - nearest_y)^2) - a.radius
 
     # 5. point in global space
     cos_a =  cos(-b.angle)
@@ -109,7 +109,7 @@ function resolve_collision(model::BilliardBrownian,
                            vel::S2V,
                            angle::Float64)
     
-    n = S2V(sin(angle), cos(angle))
+    n = S2V(cos(angle), sin(angle))
     new_vel = vel - 2 * dot(vel, n) * n
     (pos, new_vel)
 end
