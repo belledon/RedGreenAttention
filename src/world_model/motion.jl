@@ -26,8 +26,8 @@ function resolve_motion(model::BilliardBrownian,
             scan_for_collision(model, obj, pos, vel, state.static)
 
         new_pos, new_vel = resolve_oob(model, obj, pos, new_vel)
-        update_position!(state.dynamic, i, new_pos)
-        update_velocity!(state.dynamic, i, new_vel)
+        update_position!(new_dynamic, i, new_pos)
+        update_velocity!(new_dynamic, i, new_vel)
     end
 
     WorldState(new_dynamic, state.static)
@@ -120,10 +120,10 @@ function resolve_oob(model::BilliardBrownian,
                      vel::S2V)
     new_pos = (x, y) = pos + vel
     if abs(x) > 0.5 * model.dimensions[1]
-        vel = vel * S2V(-1., 1)
+        vel = vel .* S2V(-1., 1)
         new_pos = pos + vel
     elseif abs(y) > 0.5 * model.dimensions[2]
-        vel = vel * S2V(1, -1)
+        vel = vel .* S2V(1, -1)
         new_pos = pos + vel
     end
     new_pos, vel

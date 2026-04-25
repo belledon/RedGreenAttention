@@ -112,7 +112,7 @@ static = StaticState(
 dynamic = DynamicState(
 	[DynamicObject(1, c, Float64(pi))],
 	[S2V(-30, 20)],
-	[S2V(10, 0)]
+	[S2V(5, 0)]
 )
 
 # ╔═╡ 332ff5ab-b61f-4b95-ae4e-1cc625c79d25
@@ -161,7 +161,7 @@ function animate_trace(trace, frame)
 end
 
 # ╔═╡ 82635ed3-5e8d-4a40-9637-e8b6cd642438
-@bind frames Slider(1:nframes, default=1)
+@bind frames Slider(1:nframes, default=1, show_value=x->"  Frame $x")
 
 # ╔═╡ bffb10ce-f30f-4d7d-89bb-029a3f8bb124
 animate_trace(tr, frames)
@@ -193,5 +193,5 @@ animate_trace(tr, frames)
 # ╠═d5ac5705-cbd9-4673-8257-8f6945540feb
 # ╠═5ca74938-8057-4eca-9055-ca62d8ed15ad
 # ╟─891ebf38-5e8d-4348-b510-fb633949c3eb
-# ╟─82635ed3-5e8d-4a40-9637-e8b6cd642438
+# ╠═82635ed3-5e8d-4a40-9637-e8b6cd642438
 # ╟─bffb10ce-f30f-4d7d-89bb-029a3f8bb124
