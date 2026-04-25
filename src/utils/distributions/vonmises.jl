@@ -1,4 +1,4 @@
-export von_mises, VonMises
+export vonmises, VonMises
 
 struct VonMises <: Gen.Distribution{Float64} end
 
@@ -9,7 +9,7 @@ function Gen.random(::VonMises, mu::Float64, k::Float64)
 end
 
 function Gen.logpdf(::VonMises, x::Float64, mu::Float64, k::Float64)
-    Distributions.logpdf(Distributions.VonMises(mu, k))
+    Distributions.logpdf(Distributions.VonMises(mu, k), x)
 end
 
 (::VonMises)(mu, k) = Gen.random(vonmises, mu, k)

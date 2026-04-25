@@ -28,10 +28,10 @@ function Gen.random(::MaskRV,
     # fill - Beta (phi, kappa) -> (alpha, beta)
     alpha = fill_mu * fill_var
     beta = (1 - fill_mu) * fill_var
-    f = Gen.random(beta, alpha, beta)
+    f = Gen.random(Gen.beta, alpha, beta)
     # color - vonmises
     c = Gen.random(vonmises, color_mu, color_var)
-    Mask(pos, extents, f, c)
+    Mask(S2V(x,y), S2V(dx, dy), f, c)
 end
 
 function Gen.logpdf(::MaskRV,
@@ -51,7 +51,7 @@ function Gen.logpdf(::MaskRV,
     # fill - Beta (phi, kappa) -> (alpha, beta)
     alpha = fill_mu * fill_var
     beta = (1 - fill_mu) * fill_var
-    w += Gen.logpdf(beta, x.fill_ratio, alpha, beta)
+    w += Gen.logpdf(Gen.beta, x.fill_ratio, alpha, beta)
     # color - vonmises
     w += Gen.logpdf(vonmises, x.hsv, color_mu, color_var)
     return w

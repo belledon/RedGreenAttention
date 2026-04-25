@@ -57,7 +57,7 @@ struct DynamicState
 end
 
 function DynamicState(prev::DynamicState)
-    DynamicState(objects,
+    DynamicState(prev.objects,
                  copy(prev.positions),
                  copy(prev.velocities))
 end
@@ -77,6 +77,11 @@ import Base.length
 Base.length(st::StaticState) = length(st.objects)
 Base.length(st::DynamicState) = length(st.objects)
 
+function update_position!(st::DynamicState, i::Int, v::S2V)
+    st.positions[i] = v
+    return nothing
+end
+
 function update_velocity!(st::DynamicState, i::Int, v::S2V)
     st.velocities[i] = v
     return nothing
@@ -95,4 +100,5 @@ nobjects(ws::WorldState) = nstatic(ws) + ndynamic(ws)
 
 include("motion.jl")
 include("graphics/graphics.jl")
+include("gen.jl")
 include("visuals.jl")

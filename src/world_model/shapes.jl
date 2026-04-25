@@ -6,11 +6,12 @@ struct Circle <: Shape
 end
 
 const PI_HALF = pi / 2
+const PI_QT   = pi / 4
 
 function bbox_iou(c::Circle)
-    # area = 2 * pi * c.radius * c.radius
+    # area = pi * c.radius * c.radius
     # area / (4 * c.radius * c.radius)
-    PI_HALF
+    PI_QT
 end
 
 struct Rectangle <: Shape

@@ -9,10 +9,11 @@ end
 
 include("mask.jl")
 
-# TODO: import GenRFS
-# const MaskRFS = RFGM(MRFS{Mask}(), (150, 1.0))
-
+"A randon finite element over masks"
 const MaskRFE = RandomFiniteElement{Mask}
+
+"The approximate RFS distribution over masks"
+const MaskRFS = RFGM(MRFS{Mask}(), (100, 1.0))
 
 function predict(gm::MaskGraphics, ws::WorldState)
 
@@ -27,7 +28,8 @@ function predict(gm::MaskGraphics, ws::WorldState)
     # Occlusion between dynamic and static
     for i in 1:ndynamic(ws)
         obj, pos, _ = ws.dynamic[i]
-        bern_prob = scan_for_occlusion(gm, obj, pos, ws.static)
+        occ_ratio = scan_for_occlusion(gm, obj, pos, ws.static)
+        bern_prob = clamp(1.0 - occ_ratio, 0.01, 0.99)
         rfes[i + nstatic(ws)] =
             render_mask(obj.shape, pos, obj.color, bern_prob, gm)
     end
@@ -42,14 +44,14 @@ function render_mask(shp::Rectangle,
                      color::Float64,
                      model::MaskGraphics)
     BernoulliElement{Mask}(
-        1.0, # should always be present,
+        0.99,
         maskrv,
         (
             pos,
             model.pos_var,
             S2V(2 * shp.hw, 2 * shp.hh),
             model.extents_var,
-            bbox_iou(shp),
+            clamp(bbox_iou(shp), 0.01, 0.99), # mean of Beta
             model.fill_var,
             color,
             model.color_var
@@ -63,14 +65,14 @@ function render_mask(shp::Circle,
                      ratio::Float64,
                      model::MaskGraphics)
     BernoulliElement{Mask}(
-        clamp(ratio, 0.01, 0.99), # depends linearly on occlusion
+        ratio,
         maskrv,
         (
             pos,
             model.pos_var,
             S2V(2 * shp.radius, 2 * shp.radius),
             model.extents_var,
-            bbox_iou(shp),
+            clamp(bbox_iou(shp), 0.01, 0.99), # mean of Beta
             model.fill_var,
             color,
             model.color_var
@@ -103,9 +105,9 @@ function occlusion(::MaskGraphics,
     # d =   0, 0%
     # d =  -r, 50%
     # d = -2r, 100%
-    d = distance(a, b, a_pos, b_pos)
+    d, _ = distance(a, b, a_pos, b_pos)
     # [-r, r] ; + r
     # [0, 2r] ; / 2r
     # [0, 1]
-    ratio = min(0.0, -0.5 * d / a.radius)
+    ratio = max(0.0, -0.5 * d / a.radius)
 end

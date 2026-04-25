@@ -1,6 +1,7 @@
 export init_viz!,
     paint!,
-    paint_state
+    paint_state,
+    paint_masks
 
 import Colors
 
@@ -11,6 +12,33 @@ function init_viz!(w::Float64, h::Float64,
     background(back_color)
     return d
 end
+
+function paint_state(ws::WorldState, wm::WorldModel, ret_finish=true)
+    x, y = wm.dimensions
+    d = init_viz!(x, y)
+    for i = 1:ndynamic(ws)
+        x, pos, _ = ws.dynamic[i]
+        paint!(x.shape, pos, x.color)
+    end
+    for i = 1:nstatic(ws)
+        x = ws.static[i]
+	    paint!(x.shape, x.pos, x.color)
+    end
+	ret_finish && finish()
+	return d
+end
+
+function paint_masks(masks::AbstractArray{Mask}, wm::WorldModel)
+    x, y = wm.dimensions
+    d = init_viz!(x, y)
+    n = length(masks)
+    for i = 1:n
+        paint!(masks[i])
+    end
+	finish()
+	return d
+end
+
 
 function paint!(shp::Rectangle, pos::S2V, hue::Float64,
                 opacity=1.0)
@@ -38,18 +66,18 @@ function paint!(shp::Circle, pos::S2V, hue::Float64,
     return nothing
 end
 
-function paint_state(ws::WorldState, wm::WorldModel)
-    x, y = wm.dimensions
-    d = init_viz!(x, y)
-    for i = 1:ndynamic(ws)
-        x, pos, _ = ws.dynamic[i]
-        paint!(x.shape, pos, x.color)
+function paint!(mask::Mask, opacity=1.0)
+    color = Colors.MSC(rad2deg(mask.hsv))
+    point = Luxor.Point(mask.pos[1], -mask.pos[2])
+    w, h = mask.extents
+    @layer begin
+        setopacity(opacity)
+        sethue(color)
+        Luxor.box(point,
+                  mask.fill_ratio*w,
+                  mask.fill_ratio*h,
+                  :fill)
+        Luxor.box(point, w, h, :stroke)
     end
-    for i = 1:nstatic(ws)
-        x = ws.static[i]
-	    paint!(x.shape, x.pos, x.color)
-    end
-	finish()
-	return d
+    return nothing
 end
-

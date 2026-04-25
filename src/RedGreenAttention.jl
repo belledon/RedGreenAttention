@@ -4,6 +4,8 @@ using Gen
 using Luxor
 using GenRFS
 using StaticArrays
+using Distributions
+using LinearAlgebra
 using DocStringExtensions
 
 greet() = print("Hello World!")
