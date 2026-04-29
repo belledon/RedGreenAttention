@@ -19,8 +19,8 @@ end
 end
 
 @gen (static) function world_model(t::Int,
-                          istate::WorldState,
-                          wm::WorldModel)
+                                   istate::WorldState,
+                                   wm::WorldModel)
 
     states ~ Gen.Unfold(kernel)(t, istate, wm)
     return states
