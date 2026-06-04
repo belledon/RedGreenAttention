@@ -1,80 +1,8 @@
-export AdaptiveComputation,
-    UniformProtocol
-
-################################################################################
-# Uniform Rationing
-################################################################################
-
-export UniformProtocol
-
-@with_kw struct UniformProtocol <: AttentionProtocol
-    "Number of rejuvenation moves"
-    moves::Int64 = 10
-    partition::TracePartition = WMPartition()
-end
-
-struct UniformAuxState <: MentalState{UniformProtocol} end
-
-function AuxState(::UniformProtocol)
-    UniformAuxState()
-end
-
-function module_step!(att::MentalModule{<:UniformProtocol},
-                      t::Int,
-                      vis::MentalModule{<:AdaptiveParticleFilter})
-    visp, visstate = mparse(vis)
-    attend!(visstate, visp, att)
-    return nothing
-end
-
-function attend!(chain::APFChain,
-                 pf::AdaptiveParticleFilter,
-                 att::MentalModule{<:UniformProtocol})
-
-    protocol, aux = mparse(att)
-    state = chain.particles
-
-    np = length(state.traces)
-
-    for i = 1:np # iterate through each particle
-        trace = state.traces[i]
-        nobj = representation_count(trace)
-        # number of moves per object
-        steps_per_obj = round(Int, protocol.moves / nobj)
-        # Stage 2
-        # select latent and C_k
-        for j = 1:nobj
-            for _ = 1:steps_per_obj
-                prop = get_prop(protocol.partition, trace, j)
-                # Apply computation, estimate dS
-                new_trace, alpha = prop(trace)
-                if log(rand()) < alpha # update particle
-                    trace = new_trace
-                    state.log_weights[i] += alpha
-                end
-            end
-        end
-
-        state.traces[i] = trace
-    end
-    return nothing
-end
-
-function AttentionModule(m::UniformProtocol)
-    MentalModule(m, UniformAuxState())
-end
-
-# HACK: dummy function - called in collision counter
-function update_dPi!(att::MentalModule{A},
-                     obj::WMObject,
-                     delta::Float64) where {A<:UniformProtocol}
-    return nothing
-end
+export AdaptiveComputation
 
 ################################################################################
 # Adaptive Computation
 ################################################################################
-
 
 @with_kw struct AdaptiveComputation{T} <: AttentionProtocol
     partition::TracePartition{T} = WMPartition()
@@ -169,17 +97,17 @@ function task_relevance(x::AdaptiveAux,
     return tr
 end
 
-function module_step!(att::MentalModule{<:AdaptiveComputation},
+function step_module!(att::MentalModule{<:AdaptiveComputation},
                       t::Int,
-                      vis::MentalModule{<:AdaptiveParticleFilter})
+                      vis::MentalModule{<:PFProtocol})
     visp, visstate = mparse(vis)
     attend!(visstate, visp, att)
     return nothing
 end
 
-function attend!(chain::APFChain,
-                 pf::AdaptiveParticleFilter,
+function attend!(perception::MentalModule{<:MaskPerception},
                  att::MentalModule{<:AdaptiveComputation})
+    _, chain = mparse(perception)
     protocol, aux = mparse(att)
 
     @unpack partition, base_steps, nns, itemp = protocol
@@ -211,6 +139,49 @@ function attend!(chain::APFChain,
                 end
                 # NOTE: continually updating partition map
                 update_dS!(att, partition, trace, j, dS)
+            end
+        end
+
+        state.traces[i] = trace
+    end
+
+    return nothing
+end
+
+function attend!(planning::MentalModule{<:RedGreenCollision},
+                 att::MentalModule{<:AdaptiveComputation})
+    _, chain = mparse(planning)
+    protocol, aux = mparse(att)
+
+    @unpack partition, base_steps, nns, itemp = protocol
+    state = chain.particles
+
+    np = length(state.traces)
+    # l = load(protocol, aux) # load is shared across particles
+
+    for i = 1:np # iterate through each particle
+        trace = state.traces[i]
+        # determine the importance of each latent
+        deltas = task_relevance(aux, partition, trace, nns)
+        importance = softmax(deltas, itemp)
+        tload = load(protocol, aux, deltas)
+        nobj = length(deltas)
+        steps_per_obj = floor(Int, base_steps / nobj)
+        # Stage 2
+        # select latent and C_k
+        for j = 1:nobj
+            steps = steps_per_obj + round(Int, tload * importance[j])
+            for _ = 1:steps
+                prop = select_prop(partition, trace, j)
+                # Apply computation, estimate dS
+                new_trace, alpha = prop(trace)
+                dS = min(alpha, 0.)
+                if log(rand()) < alpha # update particle
+                    trace = new_trace
+                    state.log_weights[i] += alpha
+                end
+                update_dS!(att, partition, trace, j, dS)
+                update_dPi!(att, partition, trace, j, dPi)
             end
         end
 

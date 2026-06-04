@@ -3,5 +3,6 @@ export AttentionModule
 function AttentionModule end
 
 include("trace_partition.jl")
-include("protocols.jl")
+include("uniform.jl")
+include("adaptive_computation.jl")
 include("visuals.jl")

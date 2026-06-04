@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.24
+# v0.20.28
 
 using Markdown
 using InteractiveUtils
@@ -46,6 +46,9 @@ using RedGreenAttention: distance
 
 # ╔═╡ e71f7fa9-0628-497e-967e-55499d0f2c1e
 using RedGreenAttention: resolve_collision
+
+# ╔═╡ 1a3aba19-8c51-492d-875c-5806dcd37fe8
+using RedGreenAttention: RGPerception, PFProtocol, MentalModule, PFChain, step_module!
 
 # ╔═╡ 27efaaf7-0e78-43e7-96aa-04128f30bfee
 html"""
@@ -173,7 +176,7 @@ md"""
 nframes = 60;
 
 # ╔═╡ d5ac5705-cbd9-4673-8257-8f6945540feb
-tr, _ = Gen.generate(world_model, (nframes, state, wm));
+tr, _ = Gen.generate(vis_model, (nframes, state, wm));
 
 # ╔═╡ 5ca74938-8057-4eca-9055-ca62d8ed15ad
 states = get_retval(tr);
@@ -268,6 +271,98 @@ end
 # ╔═╡ 5dea973e-fff0-4e46-8b07-9f243aab00ae
 test_resolve_collision()
 
+# ╔═╡ d5579c06-0de8-474c-8f95-9b2505d17620
+md"""
+# Perception
+"""
+
+# ╔═╡ 7048765c-7a2b-431e-ae69-ab0094178f26
+pf_protocol = PFProtocol(;particles = 10);
+
+# ╔═╡ ae6fb0e3-5a4f-4e92-a911-fae25f62c1c1
+function initial_state()
+	c = Circle(20.0)
+	r = Rectangle(80, 10, 0.)
+	
+	static = StaticState([StaticObject(S2V(0,  100), r, 1.0),
+						      StaticObject(S2V(0, -100), r, 110.0)])
+	dynamic = DynamicState(
+		[DynamicObject(1, c, 230.0)],
+		[S2V(0, 0)],
+		[S2V(0, -5)]
+	)
+	WorldState(dynamic, static)
+end;
+
+# ╔═╡ 4281651f-1115-42a3-a1bd-397c6e2ca4b4
+istate = initial_state();
+
+# ╔═╡ a03e912c-1a92-4888-8902-f56ded89fea7
+init_args = (0, istate, wm);
+
+# ╔═╡ 4fd8123d-2ece-466a-9d30-a45e33a8b690
+perception_protocol = RGPerception(pf_protocol, init_args, choicemap());
+
+
+# ╔═╡ 7e399920-7aca-4cf2-9aa4-04a2be8f75f2
+function test_perception()
+	steps = 30
+	experiment = PilotExp(wm, istate, steps);
+	perception_module = MentalModule(perception_protocol)
+	snapshots = Vector{Drawing}(undef, steps)
+	for t = 1:steps
+		obs = experiment.observations[t]
+		#display(obs)
+	    step_module!(perception_module, t, obs)
+		snapshots[t] = paint_state(perception_module)
+	end
+	return snapshots
+end;
+
+# ╔═╡ e232d4b6-eba9-4a63-a142-c740b2ee23c2
+snapshots = test_perception();
+
+# ╔═╡ f15c2cf3-fada-4561-ad9f-1858b420d5d5
+@bind sim_step Slider(1:length(snapshots), default=1, show_value=x->"  Frame $x")
+
+# ╔═╡ 4b170648-c374-423d-a8fc-c79e6dafcb20
+snapshots[sim_step]
+
+# ╔═╡ 6f77443d-a3c9-40a8-8a48-5bc1bc503af8
+md"""
+# Decision Making
+"""
+
+# ╔═╡ 864a4c76-efac-4ec7-864c-c68ec7f1742a
+decision_protocol = RedGreenCollision(;hsv_red = 1.0);
+
+# ╔═╡ 188d081f-7282-48e4-8080-d8c83a0c6b82
+function test_decision_making()
+	steps = 30
+	experiment = PilotExp(wm, istate, steps);
+	perception_module = MentalModule(perception_protocol)
+	decision_module = MentalModule(decision_protocol)
+	snapshots = Vector{Drawing}(undef, steps)
+	for t = 1:steps
+		obs = experiment.observations[t]
+		#display(obs)
+	    step_module!(perception_module, t, obs)
+		step_module!(decision_module, t, perception_module)
+		snapshots[t] = paint_state(perception_module)
+		@show decision_expectation(decision_module)
+	end
+	return snapshots
+end;
+
+# ╔═╡ 0695d472-2b03-4781-9033-31faf9f6eae2
+dm_snapshots = test_decision_making();
+
+# ╔═╡ 543dbe46-0694-4fd0-9086-c72f5331d8b9
+@bind dm_step Slider(1:length(snapshots), default=1, show_value=x->"  Frame $x")
+
+# ╔═╡ c146ea3f-2c12-4f8f-9607-dc325a808acb
+dm_snapshots[dm_step]
+
 # ╔═╡ Cell order:
 # ╟─27efaaf7-0e78-43e7-96aa-04128f30bfee
 # ╠═de724114-3eb9-11f1-a3ea-d5140221ca79
@@ -294,8 +389,8 @@ test_resolve_collision()
 # ╠═c84c7f31-7751-4b9c-ba7c-ae4ddef133b0
 # ╠═d5ac5705-cbd9-4673-8257-8f6945540feb
 # ╠═5ca74938-8057-4eca-9055-ca62d8ed15ad
-# ╟─cdaab024-45c8-4d82-af23-cbe89fe28ccc
-# ╟─891ebf38-5e8d-4348-b510-fb633949c3eb
+# ╠═cdaab024-45c8-4d82-af23-cbe89fe28ccc
+# ╠═891ebf38-5e8d-4348-b510-fb633949c3eb
 # ╠═82635ed3-5e8d-4a40-9637-e8b6cd642438
 # ╠═bffb10ce-f30f-4d7d-89bb-029a3f8bb124
 # ╟─29eed906-3602-4ea1-8feb-38062c1eba62
@@ -310,3 +405,20 @@ test_resolve_collision()
 # ╠═e71f7fa9-0628-497e-967e-55499d0f2c1e
 # ╠═c2bb534d-7432-4a05-878b-dc18bec1127e
 # ╠═5dea973e-fff0-4e46-8b07-9f243aab00ae
+# ╟─d5579c06-0de8-474c-8f95-9b2505d17620
+# ╠═1a3aba19-8c51-492d-875c-5806dcd37fe8
+# ╠═7048765c-7a2b-431e-ae69-ab0094178f26
+# ╠═ae6fb0e3-5a4f-4e92-a911-fae25f62c1c1
+# ╠═4281651f-1115-42a3-a1bd-397c6e2ca4b4
+# ╠═a03e912c-1a92-4888-8902-f56ded89fea7
+# ╠═4fd8123d-2ece-466a-9d30-a45e33a8b690
+# ╠═7e399920-7aca-4cf2-9aa4-04a2be8f75f2
+# ╠═e232d4b6-eba9-4a63-a142-c740b2ee23c2
+# ╠═f15c2cf3-fada-4561-ad9f-1858b420d5d5
+# ╠═4b170648-c374-423d-a8fc-c79e6dafcb20
+# ╟─6f77443d-a3c9-40a8-8a48-5bc1bc503af8
+# ╠═864a4c76-efac-4ec7-864c-c68ec7f1742a
+# ╠═188d081f-7282-48e4-8080-d8c83a0c6b82
+# ╠═0695d472-2b03-4781-9033-31faf9f6eae2
+# ╠═543dbe46-0694-4fd0-9086-c72f5331d8b9
+# ╠═c146ea3f-2c12-4f8f-9607-dc325a808acb

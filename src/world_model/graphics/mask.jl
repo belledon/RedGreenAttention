@@ -54,6 +54,16 @@ function Gen.logpdf(::MaskRV,
     w += Gen.logpdf(Gen.beta, x.fill_ratio, alpha, beta)
     # color - vonmises
     w += Gen.logpdf(vonmises, x.hsv, color_mu, color_var)
+    if isinf(w)
+        @show x.hsv
+        @show color_mu
+        @show color_var
+        error("-Inf logscore for mask here")
+    end
+
+    if isinf(w)
+        error("-Inf logscore for mask")
+    end
     return w
 end
 

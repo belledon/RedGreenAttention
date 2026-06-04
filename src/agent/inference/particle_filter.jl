@@ -1,5 +1,5 @@
-export AdaptiveParticleFilter,
-    APFChain
+export PFProtocol,
+    PFChain
 
 using GenParticleFilters
 
@@ -13,29 +13,26 @@ Perception Protocol that implements the adaptive computation interface in a part
 $(TYPEDFIELDS)
 
 """
-@with_kw struct AdaptiveParticleFilter <: PerceptionProtocol
+@with_kw struct PFProtocol <: InferenceProtocol
     "Number of particles"
     particles::Int = 1
     "Effective sample size"
     ess::Real = particles * 0.5
 end
 
-mutable struct APFChain <: MentalState{AdaptiveParticleFilter}
-    query::SequentialQuery
+# REVIEW: could flatten data structure?
+mutable struct PFChain
     particles::Gen.ParticleFilterState
 end
 
-function APFChain(prot::AdaptiveParticleFilter, q)
+function PFChain(p::PFProtocol, model, args::Tuple,
+                 constraints::ChoiceMap)
     particles =
-        Gen.initialize_particle_filter(q.model,
-                                       q.args,
-                                       q.constraints,
+        Gen.initialize_particle_filter(model,
+                                       args,
+                                       constraints,
                                        p.particles)
-    APFChain(0, particles)
-end
-
-function PerceptionModule(p::AdaptiveParticleFilter, query)
-    MentalModule(p, APFChain(p, query))
+    PFChain(particles)
 end
 
 
@@ -45,24 +42,22 @@ $(SIGNATURES)
 
 Internally samples particles for the next time step, conditioning on observations.
 """
-function module_step!(perception::MentalModule{V},
-                      t::Int,
-                      obs::ChoiceMap,
-                      ) where {V<:PerceptionProtocol}
-
-    p, q = mparse(perception)
+function inference_step!(chain::PFChain,
+                         proc::PFProtocol,
+                         args::Tuple,
+                         argdiffs::Tuple,
+                         obs::ChoiceMap)
     # Resample before moving on...
-    if effective_sample_size(q.particles) < proc.ess
+    if effective_sample_size(chain.particles) < proc.ess
         # Perform residual resampling, pruning low-weight particles
-        pf_residual_resample!(q.particles)
+        pf_residual_resample!(chain.particles)
     end
-    args, argdiffs = q.query(t)
     # update the state of the particles
-    Gen.particle_filter_step!(state, args, argdiffs, obs)
+    Gen.particle_filter_step!(chain.particles, args, argdiffs, obs)
     return nothing
 end
 
-# function estimate_marginal(chain::PFChain{<:IncrementalQuery, <:AdaptiveParticleFilter},
+# function estimate_marginal(chain::PFChain{<:IncrementalQuery, <:PFProtocol},
 #                            func::Function,
 #                            args::Tuple)
 #     @unpack state = chain

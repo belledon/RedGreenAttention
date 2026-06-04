@@ -42,7 +42,8 @@ end
 
 function paint!(shp::Rectangle, pos::S2V, hue::Float64,
                 opacity=1.0)
-    color = Colors.MSC(rad2deg(hue))
+    # TODO: fix color space
+    color = Colors.MSC(hue)
     point = Luxor.Point(pos[1], -pos[2])
     # Isolate the rotation for a specific object
     @layer begin

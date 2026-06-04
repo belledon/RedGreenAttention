@@ -13,6 +13,10 @@ function resolve_motion(model::BilliardBrownian,
     nstatic = length(state.static)
     ndynamic = length(state.dynamic)
 
+    !isnothing(jitter) &&
+        length(jitter) !== ndynamic &&
+            error("jitter to state length missmatch")
+
     new_dynamic = DynamicState(state.dynamic)
 
 

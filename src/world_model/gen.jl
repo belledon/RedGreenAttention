@@ -1,4 +1,4 @@
-export world_model
+export vis_model, cog_model
 
 @gen (static) function jitter_prior(var::Float64)
     dx ~ normal(0., var)
@@ -7,9 +7,9 @@ export world_model
     return result
 end
 
-@gen (static) function kernel(t::Int,
-                     prev::WorldState,
-                     wm::WorldModel)
+@gen (static) function vis_kernel(t::Int,
+                                  prev::WorldState,
+                                  wm::WorldModel)
     nd = ndynamic(prev)
     jitter ~ Gen.Map(jitter_prior)(Fill(wm.motion.jitter, nd))
     next::WorldState = resolve_motion(wm.motion, prev, jitter)
@@ -18,10 +18,28 @@ end
     return next
 end
 
-@gen (static) function world_model(t::Int,
-                                   istate::WorldState,
-                                   wm::WorldModel)
+@gen (static) function cog_kernel(t::Int,
+                                  prev::WorldState,
+                                  wm::WorldModel)
+    nd = ndynamic(prev)
+    jitter ~ Gen.Map(jitter_prior)(Fill(wm.motion.jitter, nd))
+    next::WorldState = resolve_motion(wm.motion, prev, jitter)
+    return next
+end
 
-    states ~ Gen.Unfold(kernel)(t, istate, wm)
+@gen (static) function vis_model(t::Int,
+                                 istate::WorldState,
+                                 wm::WorldModel)
+
+    states ~ Gen.Unfold(vis_kernel)(t, istate, wm)
     return states
 end
+
+@gen (static) function cog_model(t::Int,
+                                 istate::WorldState,
+                                 wm::WorldModel)
+
+    states ~ Gen.Unfold(cog_kernel)(t, istate, wm)
+    return states
+end
+

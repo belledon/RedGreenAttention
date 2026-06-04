@@ -5,11 +5,16 @@ struct VonMises <: Gen.Distribution{Float64} end
 const vonmises = VonMises()
 
 function Gen.random(::VonMises, mu::Float64, k::Float64)
-    rand(Distributions.VonMises(mu, k))
+    (rand(Distributions.VonMises(k)) + mu) % pi
 end
 
 function Gen.logpdf(::VonMises, x::Float64, mu::Float64, k::Float64)
-    Distributions.logpdf(Distributions.VonMises(mu, k), x)
+    d = Distributions.VonMises(k)
+    s = (x - mu) % pi
+    # @show minimum(d)
+    # @show maximum(d)
+    # @show s
+    Distributions.logpdf(d, s)
 end
 
 (::VonMises)(mu, k) = Gen.random(vonmises, mu, k)

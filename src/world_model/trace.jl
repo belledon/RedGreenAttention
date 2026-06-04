@@ -2,9 +2,14 @@
 # Trace methods
 ################################################################################
 
-gen_fn(::WorldModel) = world_model
-const WorldModelIR = Gen.get_ir(world_model)
-const WMTrace = Gen.get_trace_type(world_model)
+gen_fn(::WorldModel) = vis_model
+const WorldModelIR = Gen.get_ir(vis_model)
+const WMTrace = Gen.get_trace_type(vis_model)
+
+function get_last_state(tr::WMTrace)
+    t, istate, wm = get_args(tr)
+    t == 0 ? istate : last(get_retval(tr))
+end
 
 # function extract_rfs_subtrace(trace::WMTrace, t::Int64)
 #     # StaticIR names and nodes
@@ -70,10 +75,6 @@ const WMTrace = Gen.get_trace_type(world_model)
 #     had_birth_bool(trace) ? 0.0 : -Inf
 # end
 
-# function get_last_state(tr::WMTrace)
-#     t, wm, istate = get_args(tr)
-#     t == 0 ? istate : last(get_retval(tr))
-# end
 
 # function single_count(tr::WMTrace)
 #     state = get_last_state(tr)

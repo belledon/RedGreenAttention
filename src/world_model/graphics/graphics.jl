@@ -22,19 +22,19 @@ function predict(gm::MaskGraphics, ws::WorldState)
     # Render static elements
     for i = 1:nstatic(ws)
         x = ws.static[i]
-        rfes[i] = render_mask(x.shape, x.pos, x.color, gm)
+        rfes[i] = render_mask(x.shape, x.pos, x.color, 0.95, gm)
     end
 
     # Occlusion between dynamic and static
     for i in 1:ndynamic(ws)
         obj, pos, _ = ws.dynamic[i]
         occ_ratio = scan_for_occlusion(gm, obj, pos, ws.static)
-        bern_prob = clamp(1.0 - occ_ratio, 0.01, 0.99)
+        bern_prob = clamp(1.0 - occ_ratio, 0.05, 0.95)
         rfes[i + nstatic(ws)] =
             render_mask(obj.shape, pos, obj.color, bern_prob, gm)
     end
 
-    # TODO: Joined masks? 
+    # TODO: Joined masks?
 
     return rfes
 end
@@ -42,9 +42,10 @@ end
 function render_mask(shp::Rectangle,
                      pos::S2V,
                      color::Float64,
+                     ratio::Float64,
                      model::MaskGraphics)
     BernoulliElement{Mask}(
-        0.99,
+        ratio,
         maskrv,
         (
             pos,
@@ -53,7 +54,7 @@ function render_mask(shp::Rectangle,
             model.extents_var,
             clamp(bbox_iou(shp), 0.01, 0.99), # mean of Beta
             model.fill_var,
-            color,
+            TWO_PI * (color/MAX_HSV_SAT - 0.5),
             model.color_var
         )
     )
@@ -74,7 +75,7 @@ function render_mask(shp::Circle,
             model.extents_var,
             clamp(bbox_iou(shp), 0.01, 0.99), # mean of Beta
             model.fill_var,
-            color,
+            TWO_PI * (color/MAX_HSV_SAT - 0.5),
             model.color_var
         )
     )

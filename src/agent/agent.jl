@@ -27,6 +27,10 @@ mutable struct MentalModule{T<:MentalProtocol}
     state::MentalState{T}
 end
 
+# function MentalModule(protocol::T) where {T<:MentalProtocol}
+#     S = state_type(T)
+#     MentalModule{T}(protocol, S(protocol))
+# end
 
 """
     $(TYPEDSIGNATURES)
@@ -51,18 +55,12 @@ Should return `Nothing`.
 
 $(METHODLIST)
 """
-function module_step! end
+function step_module! end
 
-"How to generate world models from observations"
 abstract type PerceptionProtocol <: MentalProtocol end
-
-"How to generate decisions from percepts"
 abstract type PlanningProtocol <: MentalProtocol end
 
-# "A Frame is worth 1000 words"
-# abstract type MemoryProtocol <: MentalProtocol end
-
-"Attending across time and space"
+"Rations resources within inference procedures"
 abstract type AttentionProtocol <: MentalProtocol end
 
 
@@ -99,18 +97,24 @@ Not all modules will necessarily operate at each tick.
 """
 function agent_step!(agent::Agent, t::Int, obs::ChoiceMap)
     @unpack attention, perception, planning, memory = agent
-    module_step!(perception, t, obs)
-    module_step!(attention,  t, perception)
-    module_step!(planning,   t, attention, perception)
+    # advance state-tracking particle filter
+    step_module!(perception, t, obs)
+    # approximate red-green marginal over future states
+    step_module!(planning, t)
+    # further refine current world state
+    step_module!(attention,  t, perception)
+    # further refine future predictions
+    step_module!(attention,  t, planning)
     return nothing
 end
 
 # Mental module implementations
-include("perception/perception.jl") # Hyper-particle filter
-include("planning/planning.jl") # Event counting and planning-as-inference
-include("attention/attention.jl") # Adaptive computation
+include("inference/inference.jl")
+include("perception/perception.jl") 
+include("planning/planning.jl") 
+# include("attention/attention.jl")
 
 # agent-tailored visualizations
 # TODO: refactor
-include("visuals.jl")
-include("io.jl")
+# include("visuals.jl")
+# include("io.jl")
