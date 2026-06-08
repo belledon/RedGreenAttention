@@ -11,6 +11,11 @@ function get_last_state(tr::WMTrace)
     t == 0 ? istate : last(get_retval(tr))
 end
 
+function get_last_time(tr::WMTrace)
+    t, _... = get_args(tr)
+    return t
+end
+
 # function extract_rfs_subtrace(trace::WMTrace, t::Int64)
 #     # StaticIR names and nodes
 #     outer_ir = Gen.get_ir(wm_inertia)

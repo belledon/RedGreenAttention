@@ -3,7 +3,7 @@ export Agent, MentalProtocol,
     PerceptionProtocol,
     PlanningProtocol,
     AttentionProtocol,
-    agent_step!
+    step_agent!
 
 
 "The algorithmic implementation of a mental process"
@@ -95,16 +95,14 @@ Simulate one tick in the agent's mind.
 
 Not all modules will necessarily operate at each tick.
 """
-function agent_step!(agent::Agent, t::Int, obs::ChoiceMap)
-    @unpack attention, perception, planning, memory = agent
+function step_agent!(agent::Agent, t::Int, obs::ChoiceMap)
+    @unpack attention, perception, planning = agent
     # advance state-tracking particle filter
     step_module!(perception, t, obs)
     # approximate red-green marginal over future states
-    step_module!(planning, t)
-    # further refine current world state
-    step_module!(attention,  t, perception)
-    # further refine future predictions
-    step_module!(attention,  t, planning)
+    step_module!(planning, t, perception)
+    # further refine current world state and future predictions
+    step_module!(attention,  t, perception, planning)
     return nothing
 end
 
@@ -112,7 +110,7 @@ end
 include("inference/inference.jl")
 include("perception/perception.jl") 
 include("planning/planning.jl") 
-# include("attention/attention.jl")
+include("attention/attention.jl")
 
 # agent-tailored visualizations
 # TODO: refactor

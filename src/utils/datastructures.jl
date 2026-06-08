@@ -52,7 +52,7 @@ end
 Determine the value of `coord`, storing intermediate values in `idxs` and `dists`.
 """
 function integrate!(idxs::Vector{Int32},
-                    dists::Vector{Float32}, 
+                    dists::Vector{V}, 
                     coord::K,
                     sm::HashMap{K, V}) where {K, V}
     k = min(length(idxs), length(dists))

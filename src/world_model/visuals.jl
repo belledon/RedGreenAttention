@@ -7,7 +7,7 @@ import Colors
 
 function init_viz!(w::Float64, h::Float64,
                    back_color="white")
-    d = Drawing(w, h)
+    d = Drawing(w, h, :svg)
     origin()
     background(back_color)
     return d
@@ -41,28 +41,33 @@ end
 
 
 function paint!(shp::Rectangle, pos::S2V, hue::Float64,
-                opacity=1.0)
+                opacity=1.0, size_scale::Float64=1.0)
     # TODO: fix color space
     color = Colors.MSC(hue)
     point = Luxor.Point(pos[1], -pos[2])
+    w = 2*shp.hw*size_scale
+    h = 2*shp.hh*size_scale
     # Isolate the rotation for a specific object
     @layer begin
         setopacity(opacity)
         sethue(color)
+        translate(point)
         rotate(shp.angle) 
-        Luxor.box(point, 2*shp.hw, 2*shp.hh, :fill)
+        Luxor.box(Luxor.Point(0,0), w, h, :fill)
     end
     return nothing
 end
 
 function paint!(shp::Circle, pos::S2V, hue::Float64,
-                opacity=1.0)
+                opacity=1.0, size_scale::Float64=1.0)
     color = Colors.MSC(rad2deg(hue))
     point = Luxor.Point(pos[1], -pos[2])
+    radius = size_scale * shp.radius
     @layer begin
         setopacity(opacity)
         sethue(color)
-        Luxor.circle(point, shp.radius, :fill)
+        translate(point)
+        Luxor.circle(Luxor.Point(0, 0), radius, :fill)
     end
     return nothing
 end

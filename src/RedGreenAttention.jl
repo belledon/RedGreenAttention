@@ -3,9 +3,12 @@ module RedGreenAttention
 using Gen
 using Luxor
 using GenRFS
+using Distances
 using StaticArrays
 using Distributions
 using LinearAlgebra
+using DataStructures
+using NearestNeighbors
 using DocStringExtensions
 using Parameters: @unpack, @with_kw
 

@@ -6,7 +6,7 @@
 function object_ancestral_proposal(trace::WMTrace,
                                    idx::Int)
     t, _... = get_args(trace)
-    selection = select(:states => t => :jitter => idx)
+    selection = select(:kernel => t => :jitter => idx)
     new_trace, w, _ = regenerate(trace, selection)
 
     if isinf(w) || isnan(w)

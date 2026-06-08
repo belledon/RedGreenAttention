@@ -65,39 +65,39 @@ function collision(model::BilliardBrownian,
                    a_pos::S2V,
                    b_pos::S2V)
     d, a = distance(a, b, a_pos, b_pos)
-    collided = abs(d) < model.collision_thresh
+    collided = d < model.collision_thresh
     angle = collided ? a : 0.0
     (collided, angle)
 end
 
 function distance(a::Circle, b::Circle, a_pos::S2V, b_pos::S2V)
     l2_center = norm(b_pos - a_pos)
-    l2_center - a.radius - b.radius
+    (l2_center - a.radius - b.radius, 0.0)
 end
 
 function distance(a::Circle, b::Rectangle, a_pos::S2V, b_pos::S2V)
     # 1. Translate circle center relative to rect center
     dx, dy = a_pos - b_pos
 
-    # 2. Rotate by -angle to align with b's local axes
+    # 2. Rotate by -b.angle to align with rectangle's local axes
     cos_a =  cos(b.angle)
     sin_a =  sin(b.angle)
-    lx =  cos_a * dx + sin_a * dy   # local x
-    ly = -sin_a * dx + cos_a * dy   # local y
+    lx =  cos_a * dx + sin_a * dy
+    ly = -sin_a * dx + cos_a * dy
 
-    # 3. Find the closest point on the AABB [-hw,hw] x [-hh,hh] to local a center
+    # 3. Find the closest point on the AABB [-hw,hw] x [-hh,hh]
     nearest_x = clamp(lx, -b.hw, b.hw)
     nearest_y = clamp(ly, -b.hh, b.hh)
 
-    # 4. distance to the closest point within the a's radius
+    # 4. Distance minus circle radius
     dist = sqrt((lx - nearest_x)^2 + (ly - nearest_y)^2) - a.radius
 
-    # 5. point in global space
-    cos_a =  cos(-b.angle)
-    sin_a =  sin(-b.angle)
-    gx =  cos_a * nearest_x + sin_a * nearest_y  
-    gy = -sin_a * nearest_x + cos_a * nearest_y  
-    dx, dy = S2V(gx, gy) - a_pos
+    # 5. Rotate nearest point back to global space (+b.angle)
+    gx = cos_a * nearest_x - sin_a * nearest_y
+    gy = sin_a * nearest_x + cos_a * nearest_y
+
+    # 6. Angle from circle center to nearest point on rectangle
+    dx, dy = S2V(gx, gy) + b_pos - a_pos
     angle = atan(dy, dx)
 
     (dist, angle)

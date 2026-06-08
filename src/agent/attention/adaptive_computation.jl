@@ -4,14 +4,15 @@ export AdaptiveComputation
 # Adaptive Computation
 ################################################################################
 
-@with_kw struct AdaptiveComputation{T} <: AttentionProtocol
-    partition::TracePartition{T} = WMPartition()
+@with_kw struct AdaptiveComputation{V, C} <: AttentionProtocol
+    vis_partition::TracePartition{V} = WMPartition{V}()
+    cog_partition::TracePartition{C} = WMPartition{C}()
     "Minimum number of moves"
     base_steps::Int64 = 3
     "Size of attention hash map"
     buffer_size::Int64 = 100
     "Distance metric in spatio-temporal maps (x,y,t)"
-    map_metric_weights::S3V = S3V(0.1, 0.1, 0.8)
+    map_metric_weights::S3V = S3V(1/3, 1/3, 1/3)
     map_metric::PreMetric = WeightedEuclidean(map_metric_weights)
     "Number of nearest neighbors"
     nns::Int64 = 5
@@ -26,38 +27,42 @@ export AdaptiveComputation
 end
 
 mutable struct AdaptiveAux <: MentalState{AdaptiveComputation}
-    "Impact of C_k on planning"
+    "Impact of C_k on decision-making"
     dPi::HashMap
+    "Impact of C_k on thinking"
+    dK::HashMap
     "Impact of C_k on perception"
     dS::HashMap
+    "Array used for task-relevance integration indeces"
+    nn_idxs::Vector{Int32}
+    "Array used for task-relevance integration distances"
+    nn_dists::Vector{Float64}
+    "Statistic over average load"
+    avg_load::Float64
 end
 
-AdaptiveAux(n::Int) = AdaptiveAux(HashMap(S3V, Float64, n),
-                                  HashMap(S3V, Float64, n))
+AdaptiveAux(n::Int, k::Int) = AdaptiveAux(HashMap(S3V, Float64, n), # dPi
+                                          HashMap(S3V, Float64, n), # dK
+                                          HashMap(S3V, Float64, n), # dS
+                                          zeros(Int32, k),
+                                          zeros(Float64, k),
+                                          0.0
+                                          ) 
 
-function AttentionModule(m::AdaptiveComputation)
-    MentalModule(m, AdaptiveAux(m.buffer_size))
+function MentalModule(m::AdaptiveComputation)
+    MentalModule(m, AdaptiveAux(m.buffer_size, m.nns))
 end
 
-Base.isempty(x::AdaptiveAux) = isempty(x.dPi) || isempty(x.dS)
+Base.isempty(x::AdaptiveAux) = isempty(x.dPi) || isempty(x.dS) || isempty(x.dK)
 
-
-function update_dPi!(att::MentalModule{A},
-                     obj::WMObject,
-                     delta::Float64) where {A<:AdaptiveComputation}
-    _, aux = mparse(att)
-    coord = get_coord(obj)
-    push_sample!(aux.dPi, coord, delta)
-    return nothing
-end
-
-function update_dS!(att::MentalModule{A},
-        partition::TracePartition{T},
-        trace::T,
-        j::Int, delta::Float64) where {A<:AdaptiveComputation, T}
-    _, aux = mparse(att)
+function update_impact!(buffer::HashMap,
+                        partition::TracePartition{T},
+                        trace::T,
+                        j::Int,
+                        delta::Float64,
+                        ) where {T<:Trace}
     coord = get_coord(partition, trace, j)
-    push_sample!(aux.dS, coord, delta)
+    push_sample!(buffer, coord, delta)
     return nothing
 end
 
@@ -65,63 +70,69 @@ function update_task_relevance!(att::MentalModule{A}
                                 ) where {A<:AdaptiveComputation}
     attp, attstate = mparse(att)
     fit_map!(attstate.dPi, attp.map_metric)
+    fit_map!(attstate.dK , attp.map_metric)
     fit_map!(attstate.dS , attp.map_metric)
     return nothing
 end
 
-function load(p::AdaptiveComputation, x::AdaptiveAux, deltas::Vector{Float64})
-    isempty(x) && return p.load
-    x = (logsumexp(deltas) - p.load_x0) / p.load_m
-    p.load * exp(min(x, 0.0))
+function load(p::AdaptiveComputation, deltas::Vector{Float64})
+    x = logsumexp(deltas)
+    x = (x - p.load_x0) / p.load_m
+    l = p.load * exp(min(x, 0.0))
+    return l
 end
 
-function task_relevance(x::AdaptiveAux,
-                        partition::TracePartition{T},
-                        trace::T,
-                        k::Int = 25
-                        ) where {T<:Gen.Trace}
-    @unpack dPi, dS = x
+function task_relevance!(aux::AdaptiveAux,
+                         dPi::HashMap,
+                         dS::HashMap,
+                         partition::TracePartition{T},
+                         trace::T,
+                         ) where {T<:Gen.Trace}
     n = latent_size(partition, trace)
     # NOTE: case with empty estimate?
     # No info yet -> -Inf
-    isempty(x) && return fill(-Inf, n)
+    (isempty(dPi) || isempty(dS)) && return fill(-Inf, n)
     tr = Vector{Float64}(undef, n)
     # Preallocating reused arrays
-    idxs, dists = zeros(Int32, k), zeros(Float32, k)
     for i = 1:n
         coord = get_coord(partition, trace, i)
-        _dpi  = integrate!(idxs, dists, coord, dPi)
-        _ds   = integrate!(idxs, dists, coord, dS )
+        _dpi  = integrate!(aux.nn_idxs, aux.nn_dists, coord, dPi)
+        _ds  = integrate!(aux.nn_idxs, aux.nn_dists, coord, dS)
         tr[i] = _dpi + _ds
     end
     return tr
 end
 
-function step_module!(att::MentalModule{<:AdaptiveComputation},
+function step_module!(att::MentalModule{AdaptiveComputation},
                       t::Int,
-                      vis::MentalModule{<:PFProtocol})
-    visp, visstate = mparse(vis)
-    attend!(visstate, visp, att)
+                      vis::MentalModule{RGPerception},
+                      planning::MentalModule{RedGreenCollision})
+    update_task_relevance!(att)
+    attend!(att, vis)
+    attend!(att, planning)
     return nothing
 end
 
-function attend!(perception::MentalModule{<:MaskPerception},
-                 att::MentalModule{<:AdaptiveComputation})
-    _, chain = mparse(perception)
+function attend!(att::MentalModule{AdaptiveComputation},
+                 perception::MentalModule{RGPerception})
+
+    _, vstate = mparse(perception)
     protocol, aux = mparse(att)
 
-    @unpack partition, base_steps, nns, itemp = protocol
-    state = chain.particles
+    @unpack vis_partition, base_steps, itemp = protocol
+    pf_state = vstate.chain.particles
 
-    np = length(state.traces)
-    # l = load(protocol, aux) # load is shared across particles
+    np = length(pf_state.traces)
+
+    avg_load = 0.0
 
     for i = 1:np # iterate through each particle
-        trace = state.traces[i]
+        trace = pf_state.traces[i]
         # determine the importance of each latent
-        deltas = task_relevance(aux, partition, trace, nns)
+        deltas = task_relevance!(aux, aux.dPi, aux.dS, vis_partition, trace)
         importance = softmax(deltas, itemp)
-        tload = load(protocol, aux, deltas)
+        tload = load(protocol, deltas)
+        avg_load += tload
         nobj = length(deltas)
         steps_per_obj = floor(Int, base_steps / nobj)
         # Stage 2
@@ -129,63 +140,77 @@ function attend!(perception::MentalModule{<:MaskPerception},
         for j = 1:nobj
             steps = steps_per_obj + round(Int, tload * importance[j])
             for _ = 1:steps
-                prop = select_prop(partition, trace, j)
-                # Apply computation, estimate dS
-                new_trace, alpha = prop(trace)
+                prop = select_prop(vis_partition, trace, j)
+                # Apply computation
+                new_trace, alpha = prop(trace, j)
+
+                # Estimate and update impacts
+                # delta S
                 dS = min(alpha, 0.)
-                if log(rand()) < alpha # update particle
+                update_impact!(aux.dS, vis_partition, trace, j, dS)
+                # delta Pi
+                # dPi = proxy_delta_pi(planning, new_trace, i)
+                # new_pi = planning_proxy(planning, new_trace)
+                # dPi = log(abs(new_pi - pi))
+
+                # Update particle
+                if log(rand()) < alpha
                     trace = new_trace
-                    state.log_weights[i] += alpha
+                    # pi = new_pi
+                    pf_state.log_weights[i] += alpha
                 end
-                # NOTE: continually updating partition map
-                update_dS!(att, partition, trace, j, dS)
+                # update_impact!(aux.dPi, partition, trace, j, dPi)
             end
         end
-
-        state.traces[i] = trace
+        pf_state.traces[i] = trace
     end
 
+    aux.avg_load = avg_load / np
     return nothing
 end
 
-function attend!(planning::MentalModule{<:RedGreenCollision},
-                 att::MentalModule{<:AdaptiveComputation})
-    _, chain = mparse(planning)
+function attend!(att::MentalModule{<:AdaptiveComputation},
+                 planning::MentalModule{<:RedGreenCollision})
+
+
     protocol, aux = mparse(att)
+    @unpack cog_partition, base_steps, itemp = protocol
 
-    @unpack partition, base_steps, nns, itemp = protocol
-    state = chain.particles
+    _, state = mparse(planning)
+    n = length(state.chain)
 
-    np = length(state.traces)
-    # l = load(protocol, aux) # load is shared across particles
-
-    for i = 1:np # iterate through each particle
-        trace = state.traces[i]
+    for i = 1:n # iterate through each particle
+        trace = state.chain[i]
         # determine the importance of each latent
-        deltas = task_relevance(aux, partition, trace, nns)
+        deltas = task_relevance!(aux, aux.dPi, aux.dK, cog_partition, trace)
         importance = softmax(deltas, itemp)
-        tload = load(protocol, aux, deltas)
+        tload = load(protocol, deltas)
         nobj = length(deltas)
         steps_per_obj = floor(Int, base_steps / nobj)
         # Stage 2
         # select latent and C_k
+        pi,_ = get_retval(trace)
         for j = 1:nobj
             steps = steps_per_obj + round(Int, tload * importance[j])
             for _ = 1:steps
-                prop = select_prop(partition, trace, j)
+                prop = select_prop(cog_partition, trace, j)
                 # Apply computation, estimate dS
-                new_trace, alpha = prop(trace)
-                dS = min(alpha, 0.)
+                new_trace, alpha = prop(trace, j)
+                new_pi,_ = get_retval(new_trace)
+                dK = min(alpha, 0.)
+                dPi = log(abs(pi - new_pi))
                 if log(rand()) < alpha # update particle
                     trace = new_trace
-                    state.log_weights[i] += alpha
+                    pi = new_pi
+                    # state.log_weights[i] += alpha
                 end
-                update_dS!(att, partition, trace, j, dS)
-                update_dPi!(att, partition, trace, j, dPi)
+                # println("Obj $(j): $dPi")
+                update_impact!(aux.dK, cog_partition, trace, j, dK)
+                update_impact!(aux.dPi, cog_partition, trace, j, dPi)
             end
         end
 
-        state.traces[i] = trace
+        state.chain[i] = trace
     end
 
     return nothing

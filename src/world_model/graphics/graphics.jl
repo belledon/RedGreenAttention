@@ -1,9 +1,22 @@
 export MaskGraphics
 
+"""
+    $(TYPEDEF)
+
+Defines the alleatory variability of mask detections.
+
+---
+
+$(TYPEDFIELDS)
+"""
 struct MaskGraphics <: GraphicsModel
+    "Variance for mask location"
     pos_var::Float64
+    "Variance for mask extends or 2D bounds"
     extents_var::Float64
+    "Variance for the proportion of BB area filled"
     fill_var::Float64
+    "Variance for color in Von-Mises space"
     color_var::Float64
 end
 
