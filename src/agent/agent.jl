@@ -113,6 +113,5 @@ include("planning/planning.jl")
 include("attention/attention.jl")
 
 # agent-tailored visualizations
-# TODO: refactor
 # include("visuals.jl")
 # include("io.jl")

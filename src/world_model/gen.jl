@@ -22,7 +22,7 @@ end
                                   prev::WorldState,
                                   wm::WorldModel)
     nd = ndynamic(prev)
-    jitter ~ Gen.Map(jitter_prior)(Fill(wm.motion.jitter, nd))
+    jitter ~ Gen.Map(jitter_prior)(Fill(wm.motion.jitter*0.5, nd))
     next::WorldState = resolve_motion(wm.motion, prev, jitter)
     return next
 end

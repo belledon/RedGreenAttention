@@ -8,7 +8,7 @@ const WMTrace = Gen.get_trace_type(vis_model)
 
 function get_last_state(tr::WMTrace)
     t, istate, wm = get_args(tr)
-    t == 0 ? istate : last(get_retval(tr))
+    t === 0 ? istate : last(get_retval(tr))
 end
 
 function get_last_time(tr::WMTrace)

@@ -24,7 +24,11 @@ function resolve_motion(model::BilliardBrownian,
         obj, pos, vel = state.dynamic[i]
         # Apply random jitter
         if !isnothing(jitter)
-            vel = vel + jitter[i]
+            vx,vy = vel + jitter[i]
+            vel = S2V(
+                clamp(vx, -15.0, 15.0),
+                clamp(vy, -15.0, 15.0),
+            )
         end
         new_pos, new_vel =
             scan_for_collision(model, obj, pos, vel, state.static)

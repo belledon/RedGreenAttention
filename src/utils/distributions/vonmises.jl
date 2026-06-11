@@ -19,6 +19,5 @@ end
 
 (::VonMises)(mu, k) = Gen.random(vonmises, mu, k)
 
-# TODO: add gradients? 
 Gen.has_output_grad(::VonMises) = false
 Gen.logpdf_grad(::VonMises, value::Set, args...) = (nothing,)

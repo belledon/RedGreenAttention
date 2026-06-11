@@ -48,10 +48,12 @@ function inference_step!(chain::PFChain,
                          argdiffs::Tuple,
                          obs::ChoiceMap)
     # Resample before moving on...
-    if effective_sample_size(chain.particles) < proc.ess
-        # Perform residual resampling, pruning low-weight particles
-        pf_residual_resample!(chain.particles)
-    end
+    maybe_resample!(chain.particles)
+    # ess = effective_sample_size(chain.particles)
+    # if ess < proc.ess
+    #     # Perform residual resampling, pruning low-weight particles
+    #     pf_residual_resample!(chain.particles)
+    # end
     # update the state of the particles
     Gen.particle_filter_step!(chain.particles, args, argdiffs, obs)
     return nothing

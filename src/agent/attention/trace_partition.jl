@@ -41,7 +41,6 @@ function latent_size(::WMPartition{T}, tr::T) where {T<:KMDTrace}
 end
 
 # REVIEW: encode shape or color?
-# TODO: Need to synchronize k and s model time coordinates
 function get_coord(p::WMPartition{T}, tr::T, idx::Int
                    ) where {T<:WMTrace}
     t, _... = get_args(tr)

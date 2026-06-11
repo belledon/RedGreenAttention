@@ -18,3 +18,4 @@
 #     MentalModule(planning, PFChain(inference, query))
 # end
 include("collision.jl")
+include("visuals.jl")

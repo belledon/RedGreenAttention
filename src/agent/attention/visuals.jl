@@ -22,10 +22,10 @@ function paint_attention_bar!(
     bar_w::Float64  = 16.0,
     bar_h::Float64  = 200.0,
     margin::Float64 = 20.0,
-    hue_low::Float64  = 0.35,       # green  (hue in [0,1])
+    hue_low::Float64  = 220.0/355.0,       # green  (hue in [0,1])
     hue_high::Float64 = 0.0,        # red
 )
-    load = clamp(load, 0.0, 1.0)
+    load = clamp(load, 0.02, 1.0)
 
     # ── Position: right side of canvas, vertically centred ──────────────────
     # Luxor origin() is at canvas centre, y-axis points DOWN
@@ -44,11 +44,12 @@ function paint_attention_bar!(
     fill_top = bar_y + (bar_h - fill_h)          # top edge of filled rect
     fill_cy  = fill_top + fill_h/2               # centre in Luxor coords
 
-    hue  = hue_low + load * (hue_high - hue_low) # interpolate green→red
-    fill_color = Colors.HSV(hue * 360, 0.85, 0.9)
+    r,g,b = _interpolate_color(S3V(0., 0., 1.), S3V(1., 0., 0.), load)
+    # hue  = hue_low + load * (hue_high - hue_low) # interpolate green→red
+    # fill_color = Colors.HSV(hue * 360, 0.85, 0.9)
 
     @layer begin
-        sethue(fill_color)
+        sethue(r,g,b)
         setopacity(0.9)
         Luxor.box(Point(bar_x, fill_cy), bar_w, fill_h, :fill)
     end
@@ -79,10 +80,13 @@ end
 
 function paint_attention_hashmap!(drawing, att::MentalModule{AdaptiveComputation})
     protocol, state = mparse(att)
+    # No data
     isempty(state.dPi) && return nothing
+    # Percent load
+    load_pct = state.avg_load / protocol.load
     npoints = length(state.dPi.samples)
     ws = softmax(collect(state.dPi.samples), protocol.itemp)
-    lmul!(1.0 / maximum(ws), ws)
+    lmul!(load_pct / maximum(ws), ws)
     for i = 1:npoints
         x,y,t = state.dPi.coords[i]
         w = ws[i]

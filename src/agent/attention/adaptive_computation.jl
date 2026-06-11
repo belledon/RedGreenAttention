@@ -79,6 +79,7 @@ function load(p::AdaptiveComputation, deltas::Vector{Float64})
     x = logsumexp(deltas)
     x = (x - p.load_x0) / p.load_m
     l = p.load * exp(min(x, 0.0))
+    # println("| Agg. Delta: $(round(x; digits=2)) | Load: $(l)")
     return l
 end
 
@@ -97,7 +98,9 @@ function task_relevance!(aux::AdaptiveAux,
     for i = 1:n
         coord = get_coord(partition, trace, i)
         _dpi  = integrate!(aux.nn_idxs, aux.nn_dists, coord, dPi)
-        _ds  = integrate!(aux.nn_idxs, aux.nn_dists, coord, dS)
+        _ds   = integrate!(aux.nn_idxs, aux.nn_dists, coord, dS)
+        # @show _dpi
+        # @show _ds
         tr[i] = _dpi + _ds
     end
     return tr
@@ -108,13 +111,14 @@ function step_module!(att::MentalModule{AdaptiveComputation},
                       vis::MentalModule{RGPerception},
                       planning::MentalModule{RedGreenCollision})
     update_task_relevance!(att)
-    attend!(att, vis)
+    attend!(att, vis, planning)
     attend!(att, planning)
     return nothing
 end
 
 function attend!(att::MentalModule{AdaptiveComputation},
-                 perception::MentalModule{RGPerception})
+                 perception::MentalModule{RGPerception},
+                 planning::MentalModule{RedGreenCollision})
 
     _, vstate = mparse(perception)
     protocol, aux = mparse(att)
@@ -148,10 +152,6 @@ function attend!(att::MentalModule{AdaptiveComputation},
                 # delta S
                 dS = min(alpha, 0.)
                 update_impact!(aux.dS, vis_partition, trace, j, dS)
-                # delta Pi
-                # dPi = proxy_delta_pi(planning, new_trace, i)
-                # new_pi = planning_proxy(planning, new_trace)
-                # dPi = log(abs(new_pi - pi))
 
                 # Update particle
                 if log(rand()) < alpha
@@ -159,13 +159,14 @@ function attend!(att::MentalModule{AdaptiveComputation},
                     # pi = new_pi
                     pf_state.log_weights[i] += alpha
                 end
-                # update_impact!(aux.dPi, partition, trace, j, dPi)
             end
         end
         pf_state.traces[i] = trace
     end
 
     aux.avg_load = avg_load / np
+    # Time smoothing
+    # aux.avg_load = 0.2 * aux.avg_load + 0.8 * avg_load / np
     return nothing
 end
 
@@ -176,7 +177,7 @@ function attend!(att::MentalModule{<:AdaptiveComputation},
     protocol, aux = mparse(att)
     @unpack cog_partition, base_steps, itemp = protocol
 
-    _, state = mparse(planning)
+    plan_prot,  state = mparse(planning)
     n = length(state.chain)
 
     for i = 1:n # iterate through each particle
@@ -189,22 +190,16 @@ function attend!(att::MentalModule{<:AdaptiveComputation},
         steps_per_obj = floor(Int, base_steps / nobj)
         # Stage 2
         # select latent and C_k
-        pi,_ = get_retval(trace)
         for j = 1:nobj
             steps = steps_per_obj + round(Int, tload * importance[j])
             for _ = 1:steps
                 prop = select_prop(cog_partition, trace, j)
                 # Apply computation, estimate dS
-                new_trace, alpha = prop(trace, j)
-                new_pi,_ = get_retval(new_trace)
+                new_trace, alpha, dPi = prop(trace, j)
                 dK = min(alpha, 0.)
-                dPi = log(abs(pi - new_pi))
                 if log(rand()) < alpha # update particle
                     trace = new_trace
-                    pi = new_pi
-                    # state.log_weights[i] += alpha
                 end
-                # println("Obj $(j): $dPi")
                 update_impact!(aux.dK, cog_partition, trace, j, dK)
                 update_impact!(aux.dPi, cog_partition, trace, j, dPi)
             end
@@ -212,6 +207,8 @@ function attend!(att::MentalModule{<:AdaptiveComputation},
 
         state.chain[i] = trace
     end
+
+    update_expectation!(state, plan_prot)
 
     return nothing
 end
