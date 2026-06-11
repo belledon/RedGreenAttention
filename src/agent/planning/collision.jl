@@ -117,6 +117,12 @@ function step_module!(planner::MentalModule{T},
     return nothing
 end
 
+function update_expectation!(m::MentalModule{RedGreenCollision})
+    p, state = mparse(m)
+    update_expectation!(state, p)
+    return nothing
+end
+
 function update_expectation!(state::RGCollisionState, p::RedGreenCollision)
     new_expectation, _ =
         approximate_rg_marginal(p, state.chain)
@@ -243,19 +249,33 @@ function proxy_delta_pi(m::MentalModule{RedGreenCollision}, tr::WMTrace, i::Int)
     protocol, dm_state = mparse(m)
     st = get_last_state(tr)
     k_trace = dm_state.chain[i]
-    delta_pi = update_k_trace(k_trace, st)
+    update_k_trace(k_trace, st)
 end
 
-function update_k_trace(tr::KMDTrace, istate::WorldState)
-    (t, _, wm, rg) = get_args(tr)
-    args = (t, istate, wm, rg)
+function update_k_trace(tr::KMDTrace, new_state::WorldState)
+    (t, orig_state, wm, rg) = get_args(tr)
+
+    # @show orig_state.dynamic[1]
+    # @show new_state.dynamic[1]
+    # @show orig_state.dynamic[2]
+    # @show new_state.dynamic[2]
+
+    args = (t, new_state, wm, rg)
     argdiffs = (NoChange(), UnknownChange(), NoChange(), NoChange())
-    new_tr, w, _... = update(tr, args, argdiffs, choicemap())
-    # @show w
+    new_tr, delta_pi, _... = update(tr, args, argdiffs, choicemap())
     # return w
     pi,_ = get_retval(tr)
     new_pi,_ = get_retval(new_tr)
-    @show pi
-    @show new_pi
-    return log(abs(new_pi - pi))
+    # delta_pi = log(abs(new_pi - pi))
+    # @show pi
+    # @show new_pi
+    # @show delta_pi
+    # @show w
+    return new_tr, delta_pi
+end
+
+function update_planning!(m::MentalModule{RedGreenCollision}, new_trace::KMDTrace, i::Int)
+    _, state = mparse(m)
+    state.chain[i] = new_trace
+    return nothing
 end

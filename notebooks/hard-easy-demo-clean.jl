@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.28
+# v0.20.24
 
 using Markdown
 using InteractiveUtils
@@ -78,7 +78,7 @@ begin
 	# world model parameters
 	dimensions = S2V(400, 400);
 	wm = WorldModel(
-		BilliardBrownian(dimensions, 0.25, 0.01),
+		BilliardBrownian(dimensions, 0.5, 0.01),
 		MaskGraphics(1.0, 1.0, 3.0, 5.0),
 		dimensions
 	)
@@ -87,13 +87,17 @@ end;
 
 # ╔═╡ 900f13c3-e404-4ade-b65e-b581dbcbb378
 function visualize_trial_pair(a::WorldState, b::WorldState, steps = 100)
-    visuals = Vector{Drawing}(undef, steps)
+    avisuals = Vector{Drawing}(undef, steps)
+	bvisuals = Vector{Drawing}(undef, steps)
+	visuals = Vector{Drawing}(undef, steps)
     for t = 1:steps
         a = RedGreenAttention.resolve_motion(wm.motion, a)
         b = RedGreenAttention.resolve_motion(wm.motion, b)
-        visuals[t] = hcat(paint_state(a, wm), paint_state(b, wm); hpad=5)
+		avisuals[t] = paint_state(a, wm)
+		bvisuals[t] = paint_state(b, wm)
+        visuals[t] = hcat(avisuals[t], bvisuals[t]; hpad=5)
     end
-    return visuals
+    return avisuals, bvisuals, visuals
 end;
 
 # ╔═╡ 769e17ce-98b6-4c16-a86f-0529ceef84fd
@@ -121,7 +125,7 @@ begin
 end;
 
 # ╔═╡ cee08ff5-817c-4ccb-b35b-f8f2286bb664
-visuals = visualize_trial_pair(hard_trial, easy_trial);
+(hard_visuals, easy_visuals, visuals) = visualize_trial_pair(hard_trial, easy_trial);
 
 # ╔═╡ 0ab31c00-630b-4559-9df4-1db3fce2f2fb
 @bind state_step Slider(1:length(visuals), default=1, show_value=x->"  Frame $x")
@@ -133,20 +137,98 @@ visuals[state_step]
 md"""
 # Adaptive Computation Architecture
 
-
 ### 5-min overview
 
-1. Task-relevance as the need for further computation (time).
-2. adaptive computation interface
-3. Online process to estimate task-relevance from (mostly) ordinary inference operations 
+Addresses three open computational challenges:
+1. Identifies a bounded general resource, $C_k$
+2. Defines task-relevance as the *instantaneous need for computation*, $\Delta_k^t$
+3. Rations these resources across objects and moments, at the scale of visual processing
 
-### Prior modeling work in a case study of MOT
-
-Predicted: 
-
-1. Predicted intra-trial sub-second patterns of spatio-temporal attention via probe detection
+In case studies of MOT and indoor scene perception: 
+1. Predicted intra-trial sub-second patterns of spatio-temporal attention (via probe detection)
 2. Predicted trial-level variability in retrospective subjective effort impressions
+3. Predicted representational precision (via change detection and localization error)
 3. Demonstrated *emergent* resource rationality: used less resources on easier trials (faster runtimes) and achieved higher accuracy in harder trials (with same resource constraints).
+"""
+
+# ╔═╡ f6245827-b712-43a9-9073-ffffa7faf737
+md"""
+**1) Computation Resource**
+
+Perception (and cognition) often involve approximation, e.g., perceptual inference $Pr(S \mid X)$.
+
+Broad family of approximation algorithms involve incremental computations that drive convergence (e.g., moving the base distribution to the target).
+
+AC interface requires these computations, $C_k$, be:
+1. targetable (to a particular representation, object, or latent)
+2. time-consistent / unitized, i.e., stable $\mathcal{O}_t$
+
+$C_k:: S \to S_{-k} \cup s'_k$
+
+Example of a probablisitic program used later that resamples an object's recent movements:
+```julia
+function object_ancestral_proposal(trace::WMTrace, k::Int)
+    t, _... = get_args(trace)
+    selection = select(:states => t => :jitter => k)
+    new_trace, w, _ = regenerate(trace, selection)
+    (new_trace, w)
+end
+```
+"""
+
+# ╔═╡ 7bdbc415-176c-4bd6-95e2-ffe365194836
+md"""
+
+**2) Task-relevance**
+
+Factorizes into two *impacts* of further applying computation steps on a representation $k$: 
+
+$\Delta_k^t = \delta_k \pi \cdot \delta_k S$
+
+
+1. Impact on decision-making: $\delta_k \pi$
+2. Impact on perception (convergence): $\delta_k S$
+
+To build an intuition...
+
+
+"""
+
+# ╔═╡ 514c36ad-e404-4cec-b387-4b60fbaecb07
+@bind single_step Slider(1:12, default=1, show_value=x->"  Frame $x")
+
+# ╔═╡ 027e8aa4-fc67-4253-9bef-15d2ee297e45
+hard_visuals[single_step]
+
+# ╔═╡ 7532a73e-095e-476a-a7e3-921386074ba6
+md"""
+- computations over the light blue's state could lead to different Red-Green ratios $\to$ higher $\delta_k \pi$
+- not the case for the purple object $\to$ lower $\delta_k \pi$
+- . $\delta_k S$ will largely be uniform except for unexpected movement or occlusion (mostly regularizing term for estimation)
+"""
+
+# ╔═╡ 1df60712-1781-4cf3-abad-4f16181e86fb
+md"""
+**3) Real-time Rationing Algorithm**
+
+Determing distribution of resources across objects and moments:
+- **Importance**, $\text{softmax}(\vec{\Delta}^t)$: proportion of computations across objects
+- **Load**, $\exp(\frac{\|\vec{\Delta}^t\| - x_0}{m})$: total need for computation ($x_0,m$ are hyper-parameters)
+
+Tractable (sub-realtime) estimation of $\Delta$ using *feed-back* loop:
+- at $t$: perform some base amount of pre-attentive computation, measure impacts $\delta_k \pi, \delta_k S$
+- at $t+1$: aggregate impacts from $t$ to estimate $\Delta$, load, and importance. 
+- repeat
+"""
+
+# ╔═╡ 930c22c7-f45e-4613-885a-73c3cc81ea28
+md"""
+# Simulations
+
+The *Agent* has three algorithmic components:
+1. Perception (particle filter) - approximates $Pr(S \mid X)$
+2. Decision-making (importance resampling) - approximates decision threshold over posterior predictive, $\mathbf{E}[\pi \mid S]$
+3. Attention (adaptive computation) - further deploys perception and decision-making computations to resolve needs for computation
 """
 
 # ╔═╡ 06f8c57c-a842-4d6c-8ddb-c593a1b900af
@@ -160,8 +242,8 @@ function init_agent(istate::WorldState)
 
 	# Attention
 	ac = AdaptiveComputation(;
-							 nns=20, buffer_size=500, base_steps=4, load=10, 
-                             load_m=0.7, load_x0 = 1., itemp = 1.0,
+							 nns=50, buffer_size=500, base_steps=4, load=10, 
+                             load_m=2.0, load_x0 = 15.0, itemp = 1.0,
                              vis_partition=WMPartition{RedGreenAttention.WMTrace}(),
                              cog_partition=WMPartition{RedGreenAttention.KMDTrace}())
 
@@ -172,11 +254,6 @@ function init_agent(istate::WorldState)
 	
 	Agent(perception_module, decision_module, attention_module)
 end;
-
-# ╔═╡ 930c22c7-f45e-4613-885a-73c3cc81ea28
-md"""
-# Simulations
-"""
 
 # ╔═╡ 6c9ee12c-de4a-47e6-b72f-7a5abf984dc0
 md"""
@@ -201,8 +278,8 @@ function update_load!(stat::Ref{Float64}, att::MentalModule{AdaptiveComputation}
 end;
 
 # ╔═╡ 19511608-982f-4204-a665-37de6821e45e
-function run_agent(istate::WorldState, steps = 30)
-	Random.seed!(1234)
+function run_agent(istate::WorldState, steps = 25)
+	# Random.seed!(123)
 	experiment = PilotExp(wm, istate, steps)
 	agent = init_agent(istate)
 	snapshots = Vector{Drawing}(undef, steps)
@@ -225,9 +302,13 @@ end;
 begin
     # Run on hard and easy trials
     println("\t\t ---HARD---")
-    hard_sim = run_agent(hard_trial)
-    println("\n\n\t\t ---EASY---")
-    easy_sim = run_agent(easy_trial)
+    hard_sim_run = @timed run_agent(hard_trial)
+	hard_sim = hard_sim_run.value
+    println("\n\t\t ---EASY---")
+    easy_sim_run = @timed run_agent(easy_trial)
+	easy_sim = easy_sim_run.value
+	println("\n\t\t----------")
+	println("\nOverall time: $(round(easy_sim_run.time+hard_sim_run.time;digits=2))s")
 end;
 
 # ╔═╡ f146a9fc-dc89-40a8-a78d-626c625dca5e
@@ -244,22 +325,28 @@ combined[step]
 # ╟─94515ebc-6010-11f1-83cf-791b54166c74
 # ╟─94b64dee-5f9f-4ff2-9b96-bfef6c9e759e
 # ╟─e331cb74-b8bb-4805-a2cd-a79efc3e44c1
-# ╟─c7283dc3-fa0f-4999-85c5-ae1bca7810b5
+# ╟─0ab31c00-630b-4559-9df4-1db3fce2f2fb
+# ╠═c2561ac7-f228-4440-8529-d9cbcdcc843c
+# ╠═c7283dc3-fa0f-4999-85c5-ae1bca7810b5
 # ╟─900f13c3-e404-4ade-b65e-b581dbcbb378
 # ╟─769e17ce-98b6-4c16-a86f-0529ceef84fd
 # ╟─edc73e15-aba5-4823-84d8-fa90532683db
 # ╟─cee08ff5-817c-4ccb-b35b-f8f2286bb664
-# ╟─0ab31c00-630b-4559-9df4-1db3fce2f2fb
-# ╟─c2561ac7-f228-4440-8529-d9cbcdcc843c
 # ╟─706d39a5-615f-47c5-b18f-005b004339ec
-# ╟─06f8c57c-a842-4d6c-8ddb-c593a1b900af
+# ╟─f6245827-b712-43a9-9073-ffffa7faf737
+# ╟─7bdbc415-176c-4bd6-95e2-ffe365194836
+# ╟─514c36ad-e404-4cec-b387-4b60fbaecb07
+# ╟─027e8aa4-fc67-4253-9bef-15d2ee297e45
+# ╟─7532a73e-095e-476a-a7e3-921386074ba6
+# ╟─1df60712-1781-4cf3-abad-4f16181e86fb
 # ╟─930c22c7-f45e-4613-885a-73c3cc81ea28
-# ╟─19511608-982f-4204-a665-37de6821e45e
+# ╠═19511608-982f-4204-a665-37de6821e45e
+# ╠═06f8c57c-a842-4d6c-8ddb-c593a1b900af
 # ╟─6c9ee12c-de4a-47e6-b72f-7a5abf984dc0
-# ╟─74d32ba3-7683-4392-821d-d91b5c1dd82f
+# ╠═74d32ba3-7683-4392-821d-d91b5c1dd82f
 # ╟─f146a9fc-dc89-40a8-a78d-626c625dca5e
 # ╟─4e22fac7-88fa-441b-b25a-9925336f0148
 # ╟─bbb7c065-645e-464f-a003-c98ed8aad104
-# ╠═f34e7a5e-207a-4fdd-8ab0-cb8940518130
+# ╟─f34e7a5e-207a-4fdd-8ab0-cb8940518130
 # ╟─90dc4133-d312-483c-9fd8-9c9591f18e39
 # ╟─13190feb-2e64-4345-afae-566238dbb449

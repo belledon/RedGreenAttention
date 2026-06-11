@@ -41,9 +41,9 @@ mutable struct AdaptiveAux <: MentalState{AdaptiveComputation}
     avg_load::Float64
 end
 
-AdaptiveAux(n::Int, k::Int) = AdaptiveAux(HashMap(S3V, Float64, n), # dPi
-                                          HashMap(S3V, Float64, n), # dK
-                                          HashMap(S3V, Float64, n), # dS
+AdaptiveAux(n::Int, k::Int) = AdaptiveAux(HashMap(S3V, Float64,   n), # dPi
+                                          HashMap(S3V, Float64,   n), # dK
+                                          HashMap(S3V, Float64,   n), # dS
                                           zeros(Int32, k),
                                           zeros(Float64, k),
                                           0.0
@@ -112,7 +112,8 @@ function step_module!(att::MentalModule{AdaptiveComputation},
                       planning::MentalModule{RedGreenCollision})
     update_task_relevance!(att)
     attend!(att, vis, planning)
-    attend!(att, planning)
+    update_expectation!(planning)
+    # attend!(att, planning)
     return nothing
 end
 
@@ -129,11 +130,13 @@ function attend!(att::MentalModule{AdaptiveComputation},
     np = length(pf_state.traces)
 
     avg_load = 0.0
+    avg_mag_delta = -Inf
 
     for i = 1:np # iterate through each particle
         trace = pf_state.traces[i]
         # determine the importance of each latent
         deltas = task_relevance!(aux, aux.dPi, aux.dS, vis_partition, trace)
+        avg_mag_delta = logsumexp(avg_mag_delta, logsumexp(deltas))
         importance = softmax(deltas, itemp)
         tload = load(protocol, deltas)
         avg_load += tload
@@ -152,10 +155,16 @@ function attend!(att::MentalModule{AdaptiveComputation},
                 # delta S
                 dS = min(alpha, 0.)
                 update_impact!(aux.dS, vis_partition, trace, j, dS)
-
+                # delta pi
+                new_pi, dPi = proxy_delta_pi(planning, new_trace, i)
+                update_impact!(aux.dPi, vis_partition, trace, j, dPi)
+                # if j == 2 && dPi > 0.5
+                #     error()
+                # end
                 # Update particle
                 if log(rand()) < alpha
                     trace = new_trace
+                    update_planning!(planning, new_pi, i)
                     # pi = new_pi
                     pf_state.log_weights[i] += alpha
                 end
@@ -165,6 +174,9 @@ function attend!(att::MentalModule{AdaptiveComputation},
     end
 
     aux.avg_load = avg_load / np
+    avg_mag_delta = avg_mag_delta - log(np)
+    @show avg_mag_delta
+    # @show aux.avg_load
     # Time smoothing
     # aux.avg_load = 0.2 * aux.avg_load + 0.8 * avg_load / np
     return nothing
