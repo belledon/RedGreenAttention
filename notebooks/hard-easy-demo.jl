@@ -139,12 +139,12 @@ function init_agent(istate::WorldState)
 	pf_protocol = PFProtocol(;particles = 15);
 	perception_protocol = RGPerception(pf_protocol, init_args, choicemap());
 	# Decision Making
-	decision_protocol = RedGreenCollision(;hsv_red = 1.0, max_sim_steps=72);
+	decision_protocol = RedGreenCollision(;hsv_red = 1.0, max_sim_steps=48);
 
 	# Attention
 	ac = AdaptiveComputation(;
 							 nns=20, buffer_size=500, base_steps=4, load=10, 
-                             load_m=0.5, load_x0 = 1., itemp = 1.0,
+                             load_m=0.7, load_x0 = 1., itemp = 1.0,
                              vis_partition=WMPartition{RedGreenAttention.WMTrace}(),
                              cog_partition=WMPartition{RedGreenAttention.KMDTrace}())
 
@@ -154,7 +154,7 @@ function init_agent(istate::WorldState)
 	attention_module = MentalModule(ac)
 	
 	Agent(perception_module, decision_module, attention_module)
-end
+end;
 
 # ╔═╡ 930c22c7-f45e-4613-885a-73c3cc81ea28
 md"""
@@ -223,8 +223,8 @@ function update_load!(stat::Ref{Float64}, att::MentalModule{AdaptiveComputation}
 end;
 
 # ╔═╡ 19511608-982f-4204-a665-37de6821e45e
-function run_agent(istate::WorldState, steps = 20)
-	Random.seed!(123)
+function run_agent(istate::WorldState, steps = 30)
+	Random.seed!(1234)
 	experiment = PilotExp(wm, istate, steps)
 	agent = init_agent(istate)
 	snapshots = Vector{Drawing}(undef, steps)

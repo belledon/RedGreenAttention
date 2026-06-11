@@ -51,7 +51,7 @@ const KMDTrace = Gen.get_trace_type(kmodel_dynamic)
 
 function object_ancestral_proposal(trace::KMDTrace,
                                    idx::Int,
-                                   lookback::Int = 15)
+                                   lookback::Int = 10)
     t0, _... = get_args(trace)
     _, dt = get_retval(trace)
     t_range = max(t0, dt-lookback):dt

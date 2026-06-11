@@ -83,7 +83,7 @@ function paint_attention_hashmap!(drawing, att::MentalModule{AdaptiveComputation
     # No data
     isempty(state.dPi) && return nothing
     # Percent load
-    load_pct = state.avg_load / protocol.load
+    load_pct = 1.5*state.avg_load / protocol.load
     npoints = length(state.dPi.samples)
     ws = softmax(collect(state.dPi.samples), protocol.itemp)
     lmul!(load_pct / maximum(ws), ws)
