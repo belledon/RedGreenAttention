@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.24
+# v0.20.28
 
 using Markdown
 using InteractiveUtils
@@ -278,8 +278,8 @@ function update_load!(stat::Ref{Float64}, att::MentalModule{AdaptiveComputation}
 end;
 
 # ╔═╡ 19511608-982f-4204-a665-37de6821e45e
-function run_agent(istate::WorldState, steps = 25)
-	# Random.seed!(123)
+function run_agent(istate::WorldState, steps = 27)
+	Random.seed!(123)
 	experiment = PilotExp(wm, istate, steps)
 	agent = init_agent(istate)
 	snapshots = Vector{Drawing}(undef, steps)
@@ -326,8 +326,8 @@ combined[step]
 # ╟─94b64dee-5f9f-4ff2-9b96-bfef6c9e759e
 # ╟─e331cb74-b8bb-4805-a2cd-a79efc3e44c1
 # ╟─0ab31c00-630b-4559-9df4-1db3fce2f2fb
-# ╠═c2561ac7-f228-4440-8529-d9cbcdcc843c
-# ╠═c7283dc3-fa0f-4999-85c5-ae1bca7810b5
+# ╟─c2561ac7-f228-4440-8529-d9cbcdcc843c
+# ╟─c7283dc3-fa0f-4999-85c5-ae1bca7810b5
 # ╟─900f13c3-e404-4ade-b65e-b581dbcbb378
 # ╟─769e17ce-98b6-4c16-a86f-0529ceef84fd
 # ╟─edc73e15-aba5-4823-84d8-fa90532683db
@@ -340,7 +340,7 @@ combined[step]
 # ╟─7532a73e-095e-476a-a7e3-921386074ba6
 # ╟─1df60712-1781-4cf3-abad-4f16181e86fb
 # ╟─930c22c7-f45e-4613-885a-73c3cc81ea28
-# ╠═19511608-982f-4204-a665-37de6821e45e
+# ╟─19511608-982f-4204-a665-37de6821e45e
 # ╠═06f8c57c-a842-4d6c-8ddb-c593a1b900af
 # ╟─6c9ee12c-de4a-47e6-b72f-7a5abf984dc0
 # ╠═74d32ba3-7683-4392-821d-d91b5c1dd82f

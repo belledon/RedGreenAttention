@@ -4,9 +4,13 @@
 ################################################################################
 
 function object_ancestral_proposal(trace::WMTrace,
-                                   idx::Int)
+                                   idx::Int,
+                                   back::Int = 3)
     t, _... = get_args(trace)
-    selection = select(:states => t => :jitter => idx)
+    t_range = max(1, t-back):t
+    selection = select(
+        (:states => ti => :jitter => idx for ti = t_range)...,
+    )
     new_trace, w, _ = regenerate(trace, selection)
 
     if isinf(w) || isnan(w)

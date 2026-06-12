@@ -175,7 +175,6 @@ function attend!(att::MentalModule{AdaptiveComputation},
 
     aux.avg_load = avg_load / np
     avg_mag_delta = avg_mag_delta - log(np)
-    @show avg_mag_delta
     # @show aux.avg_load
     # Time smoothing
     # aux.avg_load = 0.2 * aux.avg_load + 0.8 * avg_load / np
