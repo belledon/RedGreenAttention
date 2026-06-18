@@ -98,10 +98,10 @@ function task_relevance!(aux::AdaptiveAux,
     for i = 1:n
         coord = get_coord(partition, trace, i)
         _dpi  = integrate!(aux.nn_idxs, aux.nn_dists, coord, dPi)
-        _ds   = integrate!(aux.nn_idxs, aux.nn_dists, coord, dS)
-        # @show _dpi
-        # @show _ds
-        tr[i] = _dpi + _ds
+        # _ds   = integrate!(aux.nn_idxs, aux.nn_dists, coord, dS)
+        # @printf "| δπ: %.2f \t | δS: %.2f |\n" _dpi _ds
+        @printf "| δπ: %.2f \t |\n" _dpi
+        tr[i] = _dpi #+ _ds
     end
     return tr
 end
@@ -173,11 +173,12 @@ function attend!(att::MentalModule{AdaptiveComputation},
         pf_state.traces[i] = trace
     end
 
-    aux.avg_load = avg_load / np
     avg_mag_delta = avg_mag_delta - log(np)
     # @show aux.avg_load
     # Time smoothing
+    aux.avg_load = avg_load / np
     # aux.avg_load = 0.2 * aux.avg_load + 0.8 * avg_load / np
+    @printf "|Δ|: %5.2f, Avg. Load: %5.2f\n" avg_mag_delta aux.avg_load
     return nothing
 end
 

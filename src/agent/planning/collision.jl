@@ -262,16 +262,17 @@ function update_k_trace(tr::KMDTrace, new_state::WorldState)
 
     args = (t, new_state, wm, rg)
     argdiffs = (NoChange(), UnknownChange(), NoChange(), NoChange())
-    new_tr, delta_pi, _... = update(tr, args, argdiffs, choicemap())
+    new_tr, w, _... = update(tr, args, argdiffs, choicemap())
     # return w
     pi,_ = get_retval(tr)
     new_pi,_ = get_retval(new_tr)
-    # delta_pi = log(abs(new_pi - pi))
+    delta_pi = log(abs(new_pi - pi))
     # @show pi
     # @show new_pi
+    # @printf "π: %5.2f, π': %5.2f, δπ: %5.2f, w: %5.2f \n" pi new_pi delta_pi w
     # @show delta_pi
     # @show w
-    return new_tr, delta_pi
+    return new_tr, abs(w)
 end
 
 function update_planning!(m::MentalModule{RedGreenCollision}, new_trace::KMDTrace, i::Int)

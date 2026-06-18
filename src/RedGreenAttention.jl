@@ -10,9 +10,9 @@ using LinearAlgebra
 using DataStructures
 using NearestNeighbors
 using DocStringExtensions
-using Parameters: @unpack, @with_kw
 
-greet() = print("Hello World!")
+using Printf: @printf
+using Parameters: @unpack, @with_kw
 
 include("utils/utils.jl")
 include("world_model/world_model.jl")

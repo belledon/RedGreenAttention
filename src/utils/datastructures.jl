@@ -61,6 +61,7 @@ function integrate!(idxs::Vector{Int32},
     @inbounds for j = 1:k
         idx = idxs[j]
         d = max(dists[j], one(V)) # in case d = 0
+        # @printf "\t { x: %5.2f | d: %5.2f }\n" sm.samples[idx] d
         x = logsumexp(x, sm.samples[idx] - log(d))
     end
     x - log(k)
