@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.28
+# v0.20.24
 
 using Markdown
 using InteractiveUtils
@@ -90,12 +90,6 @@ function init_trial_1()
 	WorldState(dynamic, static)
 end;
 
-# ╔═╡ 467cfd97-7284-42d2-b059-b0a768f53931
-Revise.errors()
-
-# ╔═╡ 80a41693-f231-493f-806b-fdf5ab862427
-log(1)
-
 # ╔═╡ c7283dc3-fa0f-4999-85c5-ae1bca7810b5
 begin
 	# world model parameters
@@ -129,6 +123,77 @@ end;
 
 # ╔═╡ c2561ac7-f228-4440-8529-d9cbcdcc843c
 trial_1_visuals[state_step]
+
+# ╔═╡ 715ed46c-906f-4f56-8bf9-37ad1171095c
+md"""
+# Trial 2
+
+Uncertainty across observers
+"""
+
+# ╔═╡ c5c40b0c-d711-4741-a6a6-1d8f7857cdf0
+function init_trial_2()
+	static = StaticState([
+		StaticObject(S2V(120, -20), Rectangle(20, 25, 0.), 110.0),   # Green
+		StaticObject(S2V(-170, -110), Rectangle(20, 35, 0.),   1.0),   # Red
+		StaticObject(S2V(-20, 0), Rectangle(40, 25, 0.),  60.0),   # Obstacle 1
+		])
+	
+	c = Circle(12.0)
+	dynamic = DynamicState(
+		[DynamicObject(1, c, 230.0)],
+		[S2V(60, -100)],
+		[S2V(5, -2.35)]
+	)
+	WorldState(dynamic, static)
+end;
+
+# ╔═╡ b5a7e562-8422-4f6c-a50d-bd35751a0ac4
+begin
+    trial_2 = init_trial_2();
+    trial_2_visuals = visualize_trial(trial_2, 100);
+end;
+
+# ╔═╡ 3a8a7c5e-1949-4ef1-aefc-94d3bb9a4f33
+@bind trial_2_frame Slider(1:length(trial_2_visuals), default=1, show_value=x->"  Frame $x")
+
+# ╔═╡ 2689ca55-a47e-4603-9b71-1f29c6552864
+trial_2_visuals[trial_2_frame]
+
+# ╔═╡ 5a0f2a82-0da8-4a37-93cd-8171c1b8f928
+md"""
+# Trial 3
+"""
+
+# ╔═╡ 5b9aefbd-ef66-4ad9-8f99-ef1eed1281be
+function init_trial_3()
+	static = StaticState([
+		StaticObject(S2V(120, 50), Rectangle(50, 35, 0.), 110.0),   # Green
+		StaticObject(S2V(-140, -90), Rectangle(30, 70, 0.),   1.0),   # Red
+		StaticObject(S2V(-10, -70), Rectangle(20, 20, 0.),  60.0),   # Obstacle 1
+		StaticObject(S2V(120, -150), Rectangle(20, 35, 0.),  60.0),   # Obstacle 2
+		])
+	
+	c = Circle(12.0)
+	dynamic = DynamicState(
+		[DynamicObject(1, c, 230.0)],
+		[S2V(40, -20)],
+		[S2V(5, -1.5)]
+	)
+	WorldState(dynamic, static)
+end;
+
+# ╔═╡ 852b9242-797e-4365-a692-dda0cee3ec1b
+begin
+    trial_3 = init_trial_3();
+    trial_3_visuals = visualize_trial(trial_3, 92);
+end;
+
+# ╔═╡ ec787142-3bfc-42c1-8056-a874030d9226
+@bind trial_3_frame Slider(1:length(trial_3_visuals), default=1, show_value=x->"  Frame $x")
+
+# ╔═╡ ee8d1429-9fcc-49aa-9833-ec9f1349fec6
+trial_3_visuals[trial_3_frame]
 
 # ╔═╡ 706d39a5-615f-47c5-b18f-005b004339ec
 md"""
@@ -296,22 +361,60 @@ end;
 # ╔═╡ bf1dd631-607a-4821-b19c-9f9a62af1d85
 trial_1_model[trial_1_model_step]
 
+# ╔═╡ 30522f9f-e60d-43d0-97cb-faf89d370574
+begin
+    trial_2_run = @timed run_agent(trial_2, length(trial_2_visuals))
+    trial_2_model = trial_2_run.value
+end;
+
+# ╔═╡ a19d9b94-4793-4249-9d66-27517050891d
+@bind trial_2_model_step Slider(1:length(trial_2_model), default=1, show_value=x->"  Frame $x")
+
+# ╔═╡ fa00f98b-ef0a-43cd-86c6-64b093c2c0b8
+trial_2_model[trial_2_model_step]
+
+# ╔═╡ 167630c8-fe5d-44d0-9bd7-632c4a0ae76d
+begin
+    trial_3_run = @timed run_agent(trial_3, length(trial_3_visuals))
+    trial_3_model = trial_3_run.value
+end;
+
+# ╔═╡ d90ea6ac-4ba9-40fd-882c-c1594ebc648e
+@bind trial_3_model_step Slider(1:length(trial_3_model), default=1, show_value=x->"  Frame $x")
+
+# ╔═╡ cf48fafa-2f92-474d-baed-509a25c4d724
+trial_3_model[trial_3_model_step]
+
 # ╔═╡ Cell order:
 # ╟─94515ebc-6010-11f1-83cf-791b54166c74
 # ╟─94b64dee-5f9f-4ff2-9b96-bfef6c9e759e
 # ╟─e331cb74-b8bb-4805-a2cd-a79efc3e44c1
-# ╟─0ab31c00-630b-4559-9df4-1db3fce2f2fb
+# ╠═0ab31c00-630b-4559-9df4-1db3fce2f2fb
 # ╠═c2561ac7-f228-4440-8529-d9cbcdcc843c
 # ╠═769e17ce-98b6-4c16-a86f-0529ceef84fd
-# ╠═467cfd97-7284-42d2-b059-b0a768f53931
-# ╠═80a41693-f231-493f-806b-fdf5ab862427
 # ╠═9b96902d-e27e-4486-bef8-e8653fa61a9b
 # ╠═b3f24bac-d443-4799-8e66-15bc93be338b
 # ╟─bf1dd631-607a-4821-b19c-9f9a62af1d85
 # ╠═c7283dc3-fa0f-4999-85c5-ae1bca7810b5
 # ╠═900f13c3-e404-4ade-b65e-b581dbcbb378
 # ╠═cee08ff5-817c-4ccb-b35b-f8f2286bb664
-# ╟─706d39a5-615f-47c5-b18f-005b004339ec
+# ╟─715ed46c-906f-4f56-8bf9-37ad1171095c
+# ╠═c5c40b0c-d711-4741-a6a6-1d8f7857cdf0
+# ╠═3a8a7c5e-1949-4ef1-aefc-94d3bb9a4f33
+# ╠═2689ca55-a47e-4603-9b71-1f29c6552864
+# ╠═b5a7e562-8422-4f6c-a50d-bd35751a0ac4
+# ╠═30522f9f-e60d-43d0-97cb-faf89d370574
+# ╠═a19d9b94-4793-4249-9d66-27517050891d
+# ╠═fa00f98b-ef0a-43cd-86c6-64b093c2c0b8
+# ╟─5a0f2a82-0da8-4a37-93cd-8171c1b8f928
+# ╠═5b9aefbd-ef66-4ad9-8f99-ef1eed1281be
+# ╠═ec787142-3bfc-42c1-8056-a874030d9226
+# ╠═ee8d1429-9fcc-49aa-9833-ec9f1349fec6
+# ╠═852b9242-797e-4365-a692-dda0cee3ec1b
+# ╠═167630c8-fe5d-44d0-9bd7-632c4a0ae76d
+# ╠═d90ea6ac-4ba9-40fd-882c-c1594ebc648e
+# ╠═cf48fafa-2f92-474d-baed-509a25c4d724
+# ╠═706d39a5-615f-47c5-b18f-005b004339ec
 # ╟─f6245827-b712-43a9-9073-ffffa7faf737
 # ╟─7bdbc415-176c-4bd6-95e2-ffe365194836
 # ╟─514c36ad-e404-4cec-b387-4b60fbaecb07
