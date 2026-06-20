@@ -1,7 +1,10 @@
 using Luxor: sethue, Point, circle, setopacity
 
-function paint_state(att::MentalModule{AdaptiveComputation}, drawing, ret_finish=true)
-    paint_attention_hashmap!(drawing, att)
+function paint_state(att::MentalModule{AdaptiveComputation},
+                     dec::MentalModule{RedGreenCollision},
+                     drawing, ret_finish=true)
+    # paint_attention_hashmap!(drawing, att)
+    paint_fixation_prediction!(drawing, att, dec)
     paint_attention_load!(drawing, att)
     ret_finish && finish()
     return drawing
@@ -109,6 +112,53 @@ function _interpolate_color(a::S3V, b::S3V, w::Float64)
     a + (w .* (b - a))
 end
 
+function paint_fixation_prediction!(drawing,
+                                    attention::MentalModule{AdaptiveComputation},
+                                    decision::MentalModule{RedGreenCollision})
+    attp, atts = mparse(attention)
+    # No data
+    isempty(atts.dPi) && return nothing
+    # Percent load - modulates fixation spread
+    load_pct = atts.avg_load / attp.load
+
+    time_sigma = 0.95 * load_pct
+    paint_simulation_traverse!(decision, time_sigma)
+    return nothing
+end
+
+function paint_simulation_traverse!(m::MentalModule{RedGreenCollision}, stop_weight::Float64)
+    p, s = mparse(m)
+    for trace = s.chain
+        paint_trace_travese!(trace, stop_weight)
+    end
+    return nothing
+end
+
+function paint_trace_travese!(trace::KMDTrace, stop::Float64,
+                              hue_low = .35, hue_high = 0.0)
+    rg,_ = get_retval(trace)
+    rg = clamp(rg, -1.0, 1.0)
+    rg_scaled = 0.5 * (rg + 1.0)
+    hue = hue_low + rg_scaled * (hue_high - hue_low)
+    fill_color = Colors.HSV(hue * 360, 0.85, 0.9)
+
+    states = get_states(trace)
+    nt = length(states)
+    nt === 0 && return nothing
+    t = nt === 1 ? 1 : binom(nt-1, 1-stop)+1
+    state = states[t]
+    for i = 1:ndynamic(state)
+        x, pos, _ = state.dynamic[i]
+        point = Luxor.Point(pos[1], -pos[2])
+        @layer begin
+            setopacity(1.0)
+            sethue(fill_color)
+            translate(point)
+            Luxor.circle(Luxor.Point(0, 0), 5.0, :fill)
+        end
+    end
+    return nothing
+end
 
 # function render_attention(att::MentalModule{UniformProtocol})
 #     return nothing

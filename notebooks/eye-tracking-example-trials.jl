@@ -170,8 +170,8 @@ function init_trial_3()
 	static = StaticState([
 		StaticObject(S2V(120, 50), Rectangle(50, 35, 0.), 110.0),   # Green
 		StaticObject(S2V(-140, -90), Rectangle(30, 70, 0.),   1.0),   # Red
-		StaticObject(S2V(-10, -70), Rectangle(20, 20, 0.),  60.0),   # Obstacle 1
-		StaticObject(S2V(120, -150), Rectangle(20, 35, 0.),  60.0),   # Obstacle 2
+		StaticObject(S2V(-10, -90), Rectangle(20, 20, 0.),  60.0),   # Obstacle 1
+		StaticObject(S2V(120, -149), Rectangle(20, 37, 0.),  60.0),   # Obstacle 2
 		])
 	
 	c = Circle(12.0)
@@ -302,7 +302,7 @@ function init_agent(istate::WorldState)
 	# Attention
 	ac = AdaptiveComputation(;
 							 nns=50, buffer_size=500, base_steps=4, load=10, 
-                             load_m=6.7, load_x0 = 21.4, itemp = 1.0,
+                             load_m=7.0, load_x0 = 21.4, itemp = 1.0,
 							 map_metric_weights=fill(1/3, 3),
                              vis_partition=WMPartition{RedGreenAttention.WMTrace}(),
                              cog_partition=WMPartition{RedGreenAttention.KMDTrace}())
@@ -343,7 +343,7 @@ function run_agent(istate::WorldState, steps = 27)
 		# Visualizations
 		drawing = paint_state(agent.perception, false)
 		drawing = paint_state(agent.planning, drawing, false)
-		snapshots[t] = paint_state(agent.attention, drawing)
+		snapshots[t] = paint_state(agent.attention, agent.planning, drawing)
 	end
 	println("Overall load: $(cumulative_load[])")
 	return snapshots
