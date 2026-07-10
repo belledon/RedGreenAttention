@@ -121,7 +121,7 @@ function paint_fixation_prediction!(drawing,
     # Percent load - modulates fixation spread
     load_pct = atts.avg_load / attp.load
 
-    time_sigma = 0.95 * load_pct
+    time_sigma = clamp(1.5 * load_pct, 0.15, 0.90)
     paint_simulation_traverse!(decision, time_sigma)
     return nothing
 end
