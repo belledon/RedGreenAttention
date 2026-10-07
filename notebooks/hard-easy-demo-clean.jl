@@ -292,7 +292,7 @@ function run_agent(istate::WorldState, steps = 27)
 		# Visualizations
 		drawing = paint_state(agent.perception, false)
 		drawing = paint_state(agent.planning, drawing, false)
-		snapshots[t] = paint_state(agent.attention, drawing)
+		snapshots[t] = paint_state(agent.attention, agent.planning, drawing)
 	end
 	println("Overall load: $(cumulative_load[])")
 	return snapshots

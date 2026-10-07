@@ -3,7 +3,7 @@ using Luxor: sethue, Point, circle, setopacity
 function paint_state(att::MentalModule{AdaptiveComputation},
                      dec::MentalModule{RedGreenCollision},
                      drawing, ret_finish=true)
-    # paint_attention_hashmap!(drawing, att)
+    paint_attention_hashmap!(drawing, att)
     paint_fixation_prediction!(drawing, att, dec)
     paint_attention_load!(drawing, att)
     ret_finish && finish()
