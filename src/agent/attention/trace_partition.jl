@@ -45,15 +45,15 @@ function get_coord(p::WMPartition{T}, tr::T, idx::Int
                    ) where {T<:WMTrace}
     t, _... = get_args(tr)
     state = get_last_state(tr)
-    _, pos, _ = state.dynamic[idx]
-    x, y = pos
+    obj = state.dynamic[idx]
+    x, y = obj.pos
     S3V(x, y, p.time_factor * t)
 end
 function get_coord(p::WMPartition{T}, tr::T, idx::Int
                    ) where {T<:KMDTrace}
     t, state, _... = get_args(tr)
-    _, pos, _ = state.dynamic[idx]
-    x, y = pos
+    obj = state.dynamic[idx]
+    x, y = obj.pos
     S3V(x, y, p.time_factor * t)
 end
 

@@ -21,17 +21,17 @@ function resolve_motion(model::BilliardBrownian,
 
 
     for i = 1:ndynamic
-        obj, pos, vel = state.dynamic[i]
+        obj = state.dynamic[i]
         # Apply random jitter
         if !isnothing(jitter)
-            vx,vy = vel + jitter[i]
+            vx,vy = obj.vel + jitter[i]
             vel = S2V(
                 clamp(vx, -15.0, 15.0),
                 clamp(vy, -15.0, 15.0),
             )
         end
         new_pos, new_vel =
-            scan_for_collision(model, obj, pos, vel, state.static)
+            scan_for_collision(model, obj, state.static)
 
         new_pos, new_vel = resolve_oob(model, obj, pos, new_vel)
         update_position!(new_dynamic, i, new_pos)
@@ -43,18 +43,16 @@ end
 
 
 function scan_for_collision(model::BilliardBrownian,
-                            src::DynamicObject,
-                            pos::S2V,
-                            vel::S2V,
+                            src::StaticObject,
                             others::StaticState)
     n = length(others)
     @inbounds for i = 1:n
         other = others.objects[i]
         collided, angle =
-            collision(model, src.shape, other.shape, pos, other.pos)
+            collision(model, src.shape, other.shape, src.pos, other.pos)
         if collided
             pos, vel =
-                resolve_collision(model, src.shape, pos, vel, angle)
+                resolve_collision(model, src.shape, src.pos, src.vel, angle)
             break
         end
     end

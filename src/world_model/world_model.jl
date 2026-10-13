@@ -20,29 +20,40 @@ An object that does not change.
 
 $TYPEDFIELDS
 """
-struct StaticObject
+@kwdef struct StaticObject
     "Position"
     pos::S2V
     "Shape type"
     shape::Shape
     "HSV space, assumed saturation of 1"
     color::Float64
+    "Whether the object collides with others"
+    collides::Bool = false
 end
 
+"""
+    $TYPEDEF
+
+An object that changes from interactions.
+This struct only contains an index to an object's
+state. The actualy properties are stored in `DynamicState`
+
+---
+
+$TYPEDFIELDS
+
+"""
 struct DynamicObject
+    "Index to retrieve properties in DynamicState"
     state_idx::Int
-    "Shape type"
-    shape::Shape
-    "HSV space, assumed saturation of 1"
-    color::Float64
 end
 
 """
 
 """
 struct WorldModel
-    motion  ::MotionModel
-    graphics::GraphicsModel
+    motion    ::MotionModel
+    graphics  ::GraphicsModel
     dimensions::S2V
 end
 
@@ -54,23 +65,36 @@ struct DynamicState
     objects::Vector{DynamicObject}
     positions::Vector{S2V}
     velocities::Vector{S2V}
+    shape::Vector{Shape}
+    color::Vector{Float64}
 end
 
 function DynamicState(prev::DynamicState)
-    DynamicState(prev.objects,
-                 copy(prev.positions),
-                 copy(prev.velocities))
+    # NOTE: Assumes that shape and color does not change
+    DynamicState(
+        prev.objects,
+        copy(prev.positions),
+        copy(prev.velocities),
+        prev.shape,
+        prev.color
+    )
 end
 
 import Base.getindex
 
-
-function Base.getindex(st::StaticState, i::Int)
+function Base.getindex(st::StaticState, i::Int)::StaticObject
     st.objects[i]
 end
 
-function Base.getindex(st::DynamicState, i::Int)
-    (st.objects[i], st.positions[i], st.velocities[i])
+function Base.getindex(st::DynamicState, i::Int)::StaticObject
+    StaticObject(
+        st.objects[i],
+        st.positions[i],
+        st.velocities[i],
+        st.shape[i],
+        st.color[i],
+        true
+    )
 end
 
 import Base.length
@@ -87,6 +111,15 @@ function update_velocity!(st::DynamicState, i::Int, v::S2V)
     return nothing
 end
 
+"""
+    $TYPEDEF
+
+The state of the world.
+
+---
+
+$TYPEDFIELDS
+"""
 struct WorldState
     "Move around"
     dynamic::DynamicState

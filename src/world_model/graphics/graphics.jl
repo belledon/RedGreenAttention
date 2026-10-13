@@ -40,11 +40,11 @@ function predict(gm::MaskGraphics, ws::WorldState)
 
     # Occlusion between dynamic and static
     for i in 1:ndynamic(ws)
-        obj, pos, _ = ws.dynamic[i]
-        occ_ratio = scan_for_occlusion(gm, obj, pos, ws.static)
+        obj = ws.dynamic[i]
+        occ_ratio = scan_for_occlusion(gm, obj, ws.static)
         bern_prob = clamp(1.0 - occ_ratio, 0.05, 0.95)
         rfes[i + nstatic(ws)] =
-            render_mask(obj.shape, pos, obj.color, bern_prob, gm)
+            render_mask(obj.shape, obj.pos, obj.color, bern_prob, gm)
     end
 
     # TODO: Joined masks?
@@ -97,15 +97,15 @@ end
 
 
 function scan_for_occlusion(model::MaskGraphics,
-                            src::DynamicObject,
-                            pos::S2V,
+                            src::StaticObject,
                             others::StaticState)
     ratio = 0.0
     n = length(others)
     @inbounds for i = 1:n
         other = others.objects[i]
         ratio =
-            occlusion(model, src.shape, other.shape, pos, other.pos)
+            occlusion(model, src.shape, other.shape,
+                      src.pos, other.pos)
         ratio > 0 && break
     end
     return ratio

@@ -17,8 +17,8 @@ function paint_rg_predictions!(drawing, m::MentalModule{RedGreenCollision})
             # make future more transparent
             o = opacity * exp(-0.02*t)
             for i = 1:ndynamic(state)
-                x, pos, _ = state.dynamic[i]
-                paint!(x.shape, pos, x.color, o, 0.3)
+                obj = state.dynamic[i]
+                paint!(obj.shape, obj.pos, obj.color, o, 0.3)
             end
         end
     end

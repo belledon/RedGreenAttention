@@ -148,7 +148,8 @@ function paint_trace_travese!(trace::KMDTrace, stop::Float64,
     t = nt === 1 ? 1 : binom(nt-1, 1-stop)+1
     state = states[t]
     for i = 1:ndynamic(state)
-        x, pos, _ = state.dynamic[i]
+        obj = state.dynamic[i]
+        pos = obj.pos
         point = Luxor.Point(pos[1], -pos[2])
         @layer begin
             setopacity(1.0)
