@@ -68,6 +68,10 @@ struct StaticState
     objects::Vector{StaticObject}
 end
 
+import Base.iterate
+
+Base.iterate(s::StaticState, args...) = Base.iterate(s.objects, args...)
+
 struct DynamicState
     objects::Vector{Int}
     positions::Vector{S2V}
@@ -93,7 +97,7 @@ function Base.getindex(st::StaticState, i::Int)::StaticObject
     st.objects[i]
 end
 
-function Base.getindex(st::DynamicState, i::Int)::StaticObject
+function Base.getindex(st::DynamicState, i::Int)::DynamicObject
     DynamicObject(
         st.objects[i],
         st.positions[i],
@@ -102,6 +106,10 @@ function Base.getindex(st::DynamicState, i::Int)::StaticObject
         st.color[i]
     )
 end
+
+import Base.eltype
+Base.eltype(st::DynamicState) = DynamicObject
+
 
 import Base.length
 Base.length(st::StaticState) = length(st.objects)

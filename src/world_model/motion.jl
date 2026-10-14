@@ -30,10 +30,15 @@ function resolve_motion(model::BilliardBrownian,
                 clamp(vy, -15.0, 15.0),
             )
         end
-        new_pos, new_vel =
+
+        collided, angle, other_idx =
             scan_for_collision(model, obj, state.static)
 
-        new_pos, new_vel = resolve_oob(model, obj, pos, new_vel)
+        new_vel = collided ? 
+            resolve_collision(model, obj.shape, obj.pos, obj.vel, angle) :
+            obj.vel
+
+        new_pos, new_vel = resolve_oob(model, obj.pos, new_vel)
         update_position!(new_dynamic, i, new_pos)
         update_velocity!(new_dynamic, i, new_vel)
     end
@@ -44,20 +49,21 @@ end
 
 function scan_for_collision(model::BilliardBrownian,
                             src::DynamicObject,
-                            others::StaticState)
+                            others::StaticState)::Tuple{Bool, Float64, Int}
+    collided = false
+    angle = 0.0
+    other_idx = 0
     n = length(others)
     @inbounds for i = 1:n
         other = others.objects[i]
         collided, angle =
             collision(model, src.shape, other.shape, src.pos, other.pos)
         if collided
-            pos, vel =
-                resolve_collision(model, src.shape, src.pos, src.vel, angle)
+            other_idx = i
             break
         end
     end
-    # No collision
-    (pos, vel)
+    (collided, angle, other_idx)
 end
 
 
@@ -117,11 +123,9 @@ function resolve_collision(model::BilliardBrownian,
     
     n = S2V(cos(angle), sin(angle))
     new_vel = vel - 2 * dot(vel, n) * n
-    (pos, new_vel)
 end
 
 function resolve_oob(model::BilliardBrownian,
-                     obj::DynamicObject,
                      pos::S2V,
                      vel::S2V)
     new_pos = (x, y) = pos + vel
