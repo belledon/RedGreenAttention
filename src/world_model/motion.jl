@@ -43,7 +43,7 @@ end
 
 
 function scan_for_collision(model::BilliardBrownian,
-                            src::StaticObject,
+                            src::DynamicObject,
                             others::StaticState)
     n = length(others)
     @inbounds for i = 1:n

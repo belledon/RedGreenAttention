@@ -46,6 +46,13 @@ $TYPEDFIELDS
 struct DynamicObject
     "Index to retrieve properties in DynamicState"
     state_idx::Int
+    "Position"
+    pos::S2V
+    vel::S2V
+    "Shape type"
+    shape::Shape
+    "HSV space, assumed saturation of 1"
+    color::Float64
 end
 
 """
@@ -62,7 +69,7 @@ struct StaticState
 end
 
 struct DynamicState
-    objects::Vector{DynamicObject}
+    objects::Vector{Int}
     positions::Vector{S2V}
     velocities::Vector{S2V}
     shape::Vector{Shape}
@@ -87,13 +94,12 @@ function Base.getindex(st::StaticState, i::Int)::StaticObject
 end
 
 function Base.getindex(st::DynamicState, i::Int)::StaticObject
-    StaticObject(
+    DynamicObject(
         st.objects[i],
         st.positions[i],
         st.velocities[i],
         st.shape[i],
-        st.color[i],
-        true
+        st.color[i]
     )
 end
 
