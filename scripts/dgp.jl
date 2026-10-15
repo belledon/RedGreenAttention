@@ -1,4 +1,5 @@
 using FileIO
+using Printf
 import JSON
 import Colors
 import RedGreenAttention as RGA
@@ -50,24 +51,31 @@ function sample_scene(s::RGA.TrialGenSpec)
         dist_1, dist_2 = map(minimum, dists)
     end
     
-    (r_or_g, t_col, ws) =
+    (r_or_g, t_col, ws, traj) =
         RGA.run_to_rg_collision(s, istate)
     dists = RGA.rg_dists(ws)
     to_probe = rg_score(dists)
 
     attempts = 1
-    while t_col < 48 || !any(r_or_g) || to_probe == 0 
+    while t_col < 90 || !any(r_or_g) || to_probe == 0 
         istate = RGA.initial_state(s)
-        (r_or_g, t_col, ws) =
+        (r_or_g, t_col, ws, traj) =
             RGA.run_to_rg_collision(s, istate)
         dists = RGA.rg_dists(ws)
         to_probe = rg_score(dists)
         attempts += 1
+
+        if (attempts % 1000) == 0
+            @printf "Attempts so far: %d \n" attempts
+            @show t_col
+            @show r_or_g
+            @show to_probe
+        end
     end
 
     meta = SceneMeta((;t_col, r_or_g,
                      dists, to_probe))
-    (istate, meta)
+    (istate, traj, meta)
 end
 
 const STEP_MS = 1000 / 30.0   # 1 sim step ≈ 1 frame @ 30 Hz
@@ -103,38 +111,39 @@ function disc_spec(o::DynamicObject, w::Float64, h::Float64)
      vy = -o.vel[2])   # y-axis flip
 end
 
-"""
-    export_trial(istate, meta, s; response_mode="keyboard", probe_interval=0)
-
-Serialize one sampled trial. Uses the **initial** state (`istate`) for
-geometry — the plugin re-simulates motion from it. `meta` is carried as a
-`meta` object; `load.ts` passes unknown fields through untouched.
-"""
-function export_trial(istate::WorldState, meta::SceneMeta,
+function export_trial(istate::WorldState,
+                      frames::Array{Float64, 3},
+                      meta::SceneMeta,
                       s::RGA.TrialGenSpec;
-                      # response_mode::String = "keyboard",
-                      probe_interval::Int   = 0)
+                      probe_interval::Int = 0)
     w, h = s.motion_model.dimensions
+
+    mapped_frames = map(eachslice(frames;dims=3)) do t
+        map(eachslice(t;dims=2)) do obj
+            x, y = obj
+            to_plugin_xy(RGA.S2V(x, y), s.scene_x, s.scene_y)
+        end
+    end
+    
     correct = meta.r_or_g[1] ? "r" : "g"
     return (
         rectangles = [rect_spec(o, w, h) for o in istate.static],
         discs      = [disc_spec(o, w, h) for o in istate.dynamic],
+        frames     = mapped_frames,
         duration   = round(Int, meta.t_col * STEP_MS),
-        # response_mode = response_mode,
         choices    = ["r", "g"],
-        # prompt     = "Red or Green?",
         correct_response = correct,
         scene_width  = round(Int, w),
         scene_height = round(Int, h),
         probe_interval = probe_interval,
         meta = (t_col = meta.t_col,
                 to_probe = meta.to_probe,
-                dists = meta.dists),   # 2×n matrix → nested arrays
+                dists = meta.dists),
     )
 end
 
 function export_trials(trials::Vector{<:Tuple}, s::RGA.TrialGenSpec; kwargs...)
-    JSON.json([export_trial(t[1], t[2], s; kwargs...) for t in trials])
+    JSON.json([export_trial(t[1], t[2], t[3], s; kwargs...) for t in trials])
 end
 
 function main()

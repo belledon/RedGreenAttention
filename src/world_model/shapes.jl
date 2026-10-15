@@ -5,6 +5,8 @@ struct Circle <: Shape
     radius::Float64
 end
 
+radius(c::Circle) = c.radius
+
 const PI_HALF = pi / 2
 const PI_QT   = pi / 4
 

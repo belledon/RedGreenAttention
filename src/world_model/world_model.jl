@@ -55,6 +55,8 @@ struct DynamicObject
     color::Float64
 end
 
+radius(obj::DynamicObject) = radius(obj.shape)
+
 """
 
 """

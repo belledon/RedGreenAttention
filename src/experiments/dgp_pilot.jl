@@ -76,29 +76,7 @@ function resolve_initial_state(s::TrialGenSpec,
     ws = WorldState(ds, ss)
     for t = 1:s.resolve_steps
         ws = resolve_motion(s.motion_model, ws)
-
-
-        for obj = ws.dynamic
-            collided, angle, other_idx =
-                scan_for_collision(s.motion_model, obj, ws.static)
-            if collided
-                @show t
-                @show obj
-                @show ws.static.objects[other_idx]
-            end
-        end
     end
-
-    for obj = ws.dynamic
-        collided, angle, other_idx =
-            scan_for_collision(s.motion_model, obj, ws.static)
-        if collided
-            @show obj
-            @show ws.static.objects[other_idx]
-            error()
-        end
-    end
-    
     return ws
 end
 
@@ -281,15 +259,28 @@ function run_to_rg_collision(s::TrialGenSpec, istate::WorldState)
     ws = istate
     last_t = 0
     red_or_green = [false, false]
+
+    ndiscs = length(istate.dynamic)
+    traj = Array{Float64}(undef, 2, ndiscs, s.max_sim_steps + 1)
+
+    for (i, o) in enumerate(istate.dynamic)
+        traj[1, i, 1] = o.pos[1]
+        traj[2, i, 1] = o.pos[2]
+    end
+
     for t = 1:s.max_sim_steps
         red_or_green, ws = step_motion(s.motion_model, ws)
+        for (i, o) in enumerate(ws.dynamic)
+            traj[1, i, t+1] = o.pos[1]
+            traj[2, i, t+1] = o.pos[2]
+        end
         if any(red_or_green)
             last_t = t
             break
         end
     end
 
-    red_or_green, last_t, ws
+    red_or_green, last_t, ws, traj[:, :, 1:last_t+1]
 end
 
 
@@ -304,20 +295,24 @@ function step_motion(model::BilliardBrownian,
     for i = 1:ndynamic
         obj = state.dynamic[i]
 
-        collided, angle, other_idx =
+        collided, d, angle, other_idx =
             scan_for_collision(model, obj, state.static)
 
-        new_vel = collided ? 
-            resolve_collision(model, obj.shape, obj.pos, obj.vel, angle) :
-            obj.vel
+        pos = obj.pos
+        vel = obj.vel
+
+        if collided
+            pos, vel =
+                resolve_collision(model, obj.shape, pos, vel, d, angle)
+        end
 
         if collided && other_idx <= 2
             red_or_green[other_idx] = true
         end
 
-        new_pos, new_vel = resolve_oob(model, obj.pos, new_vel)
-        update_position!(new_dynamic, i, new_pos)
-        update_velocity!(new_dynamic, i, new_vel)
+        pos, vel = resolve_oob(model, radius(obj), pos, vel)
+        update_position!(new_dynamic, i, pos)
+        update_velocity!(new_dynamic, i, vel)
     end
     ws = WorldState(new_dynamic, state.static)
 
