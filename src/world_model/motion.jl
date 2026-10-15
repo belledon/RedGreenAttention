@@ -91,53 +91,49 @@ function distance(a::Circle, b::Circle, a_pos::S2V, b_pos::S2V)
 end
 
 function distance(a::Circle, b::Rectangle, a_pos::S2V, b_pos::S2V)
-    # 1. Translate circle center relative to rect center
     dx, dy = a_pos - b_pos
 
-    # 2. Rotate by -b.angle to align with rectangle's local axes.
-    #    (lx, ly) is the circle center expressed in the rectangle's
-    #    local frame: lx along the rectangle's width axis, ly along
-    #    its height axis. After this rotation the rectangle is the
-    #    axis-aligned box [-hw, hw] × [-hh, hh], and lx/ly are the
-    #    components of the offset from rect center to circle center
-    #    in that frame.
     cos_a =  cos(b.angle)
     sin_a =  sin(b.angle)
     lx =  cos_a * dx + sin_a * dy
     ly = -sin_a * dx + cos_a * dy
 
-    # 3. Inside case: the circle center lies within the rectangle's
-    #    local extents. The clamp below would return the circle's own
-    #    center as the "nearest point" (dist = -radius always, normal
-    #    inverted), so compute the minimal translation vector instead:
-    #    the nearest face and the penetration depth through it.
     if abs(lx) <= b.hw && abs(ly) <= b.hh
-        # dx_face: distance from the circle center to the nearest
-        #          vertical face (lx = ±hw), measured along local x
-        # dy_face: same, to the nearest horizontal face (ly = ±hh),
-        #          measured along local y
+        # inside: nearest face direction is the outward normal
         dx_face = b.hw - abs(lx)
         dy_face = b.hh - abs(ly)
         if dx_face < dy_face
-            sx, sy = sign(lx), 0.0
+            nx_local, ny_local = sign(lx), 0.0
             dist = -(dx_face + a.radius)
         else
-            sx, sy = 0.0, sign(ly)
+            nx_local, ny_local = 0.0, sign(ly)
             dist = -(dy_face + a.radius)
         end
-        gx = sx * (b.hw + a.radius)
-        gy = sy * (b.hh + a.radius)
     else
-        # 4. Outside case: nearest point on the axis-aligned box
+        # outside: normal = (center − nearest point on box), normalized
         nearest_x = clamp(lx, -b.hw, b.hw)
         nearest_y = clamp(ly, -b.hh, b.hh)
-        dist = sqrt((lx - nearest_x)^2 + (ly - nearest_y)^2) - a.radius
-        gx = nearest_x; gy = nearest_y
+        nx_local = lx - nearest_x
+        ny_local = ly - nearest_y
+        nrm = sqrt(nx_local^2 + ny_local^2)
+        if nrm == 0.0
+            # center on the box surface: use the dominant axis
+            nx_local, ny_local = 0.0, sign(ly)
+            if abs(lx) >= abs(ly)
+                nx_local, ny_local = sign(lx), 0.0
+            end
+        else
+            nx_local /= nrm
+            ny_local /= nrm
+        end
+        dist = nrm - a.radius
     end
 
-    # 5. Rotate the local contact point back to global space (+b.angle)
-    g = S2V(cos_a * gx - sin_a * gy, sin_a * gx + cos_a * gy)
-    angle = atan(g[2], g[1])
+    # rotate normal back to global space; resolve_collision reflects
+    # about this vector and ejects via pos - d .* n (d < 0 → outward)
+    n_glob = S2V(cos_a * nx_local - sin_a * ny_local,
+                 sin_a * nx_local + cos_a * ny_local)
+    angle = atan(n_glob[2], n_glob[1])
     (dist, angle)
 end
 

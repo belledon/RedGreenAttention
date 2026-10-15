@@ -213,7 +213,7 @@ end
     # rect_positions ~ Map(sample_position)(Fill(s, nrect))
     nrect = 5
     rectangles = sample_rectangles(nrect, s.scene_x, s.scene_y,
-                                   100., 200.0)
+                                   150., 150.0)
     
     # ndiscs ~ uniform_discrete(s.min_n_disc, s.max_n_disc)
     ndiscs = 2 
