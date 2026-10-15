@@ -39,8 +39,7 @@ function rg_score(dists::Matrix{Float64})
     idx
 end
 
-function sample_scene(s::RGA.TrialGenSpec)
-
+function sample_initial_state(s::RGA.TrialGenSpec)
     istate = RGA.initial_state(s)
     # Check if both discs are similarly close to red or green
     dists = RGA.rg_dists(istate)
@@ -50,7 +49,12 @@ function sample_scene(s::RGA.TrialGenSpec)
         dists = RGA.rg_dists(istate)
         dist_1, dist_2 = map(minimum, dists)
     end
+    istate
+end
+
+function sample_scene(s::RGA.TrialGenSpec)
     
+    istate = sample_initial_state(s)
     (r_or_g, t_col, ws, traj) =
         RGA.run_to_rg_collision(s, istate)
     dists = RGA.rg_dists(ws)
@@ -58,7 +62,7 @@ function sample_scene(s::RGA.TrialGenSpec)
 
     attempts = 1
     while t_col < 90 || !any(r_or_g) || to_probe == 0 
-        istate = RGA.initial_state(s)
+        istate = sample_initial_state(s)
         (r_or_g, t_col, ws, traj) =
             RGA.run_to_rg_collision(s, istate)
         dists = RGA.rg_dists(ws)
