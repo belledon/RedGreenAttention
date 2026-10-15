@@ -72,9 +72,9 @@ function collision(model::BilliardBrownian,
                    b::Shape,
                    a_pos::S2V,
                    b_pos::S2V)
-    d, a = distance(a, b, a_pos, b_pos)
+    d, angle = distance(a, b, a_pos, b_pos)
     collided = d < model.collision_thresh
-    angle = collided ? a : 0.0
+    angle = collided ? angle : 0.0
     (collided, angle)
 end
 

@@ -96,6 +96,18 @@ import Base.getindex
 function Base.getindex(st::StaticState, i::Int)::StaticObject
     st.objects[i]
 end
+function Base.iterate(s::DynamicState, state=nothing)
+    if state === nothing
+        state = 1  # Start from the first element
+    end
+    
+    if state > length(s)
+        return nothing  # No more elements
+    end
+    
+    value = s[state]
+    return value, state + 1  # Return the value and the next state
+end
 
 function Base.getindex(st::DynamicState, i::Int)::DynamicObject
     DynamicObject(

@@ -1,3 +1,6 @@
+using FileIO
+import JSON
+import Colors
 import RedGreenAttention as RGA
 
 # Specs:
@@ -38,6 +41,15 @@ end
 function sample_scene(s::RGA.TrialGenSpec)
 
     istate = RGA.initial_state(s)
+    # Check if both discs are similarly close to red or green
+    dists = RGA.rg_dists(istate)
+    dist_1, dist_2 = map(minimum, dists)
+    while abs(dist_1 - dist_2) > 40.0 || min(dist_1, dist_2) < 50
+        istate = RGA.initial_state(s)
+        dists = RGA.rg_dists(istate)
+        dist_1, dist_2 = map(minimum, dists)
+    end
+    
     (r_or_g, t_col, ws) =
         RGA.run_to_rg_collision(s, istate)
     dists = RGA.rg_dists(ws)
@@ -55,7 +67,74 @@ function sample_scene(s::RGA.TrialGenSpec)
 
     meta = SceneMeta((;t_col, r_or_g,
                      dists, to_probe))
-    (istate, meta, attempts)
+    (istate, meta)
+end
+
+const STEP_MS = 1000 / 30.0   # 1 sim step ≈ 1 frame @ 30 Hz
+const PX_PER_UNIT_PER_SEC = 60.0  # vel (units/step) → px/s
+
+# RGA hues (radians, from dgp_pilot.jl) → plugin hex colors.
+# HSV(h,1,1) matches visuals.jl: Colors.MSC(rad2deg(hue)) at full saturation.
+rg_hex(hue::Float64) =
+    hue == RGA.RED   ? "#FF7878" :
+    hue == RGA.GREEN ? "#78FF78" :
+    "#$(string(Colors.hex(Colors.HSV(hue, 1.0, 1.0))))"
+
+# RGA center-origin, y-up → plugin top-left, y-down.
+# Positions are centers in both systems; RGA pos ∈ (±w/2, ±h/2).
+to_plugin_xy(p::RGA.S2V, w::Float64, h::Float64) = (p[1] + w/2, h/2 - p[2])
+# to_plugin_xy(p::RGA.S2V, w::Float64, h::Float64) = (p[1] + w/2, h - p[2])
+
+function rect_spec(o::StaticObject, w::Float64, h::Float64)
+    x, y = to_plugin_xy(o.pos, w, h)
+    (x = x, y = y,
+     width  = 2 * o.shape.hw,
+     height = 2 * o.shape.hh,
+     color  = rg_hex(o.color),
+     solid  = o.collides)
+end
+
+function disc_spec(o::DynamicObject, w::Float64, h::Float64)
+    x, y = to_plugin_xy(o.pos, w, h)
+    (x = x, y = y,
+     radius = o.shape.radius,
+     color  = rg_hex(o.color),
+     vx = o.vel[1],
+     vy = -o.vel[2])   # y-axis flip
+end
+
+"""
+    export_trial(istate, meta, s; response_mode="keyboard", probe_interval=0)
+
+Serialize one sampled trial. Uses the **initial** state (`istate`) for
+geometry — the plugin re-simulates motion from it. `meta` is carried as a
+`meta` object; `load.ts` passes unknown fields through untouched.
+"""
+function export_trial(istate::WorldState, meta::SceneMeta,
+                      s::RGA.TrialGenSpec;
+                      # response_mode::String = "keyboard",
+                      probe_interval::Int   = 0)
+    w, h = s.motion_model.dimensions
+    correct = meta.r_or_g[1] ? "r" : "g"
+    return (
+        rectangles = [rect_spec(o, w, h) for o in istate.static],
+        discs      = [disc_spec(o, w, h) for o in istate.dynamic],
+        duration   = round(Int, meta.t_col * STEP_MS),
+        # response_mode = response_mode,
+        choices    = ["r", "g"],
+        # prompt     = "Red or Green?",
+        correct_response = correct,
+        scene_width  = round(Int, w),
+        scene_height = round(Int, h),
+        probe_interval = probe_interval,
+        meta = (t_col = meta.t_col,
+                to_probe = meta.to_probe,
+                dists = meta.dists),   # 2×n matrix → nested arrays
+    )
+end
+
+function export_trials(trials::Vector{<:Tuple}, s::RGA.TrialGenSpec; kwargs...)
+    JSON.json([export_trial(t[1], t[2], s; kwargs...) for t in trials])
 end
 
 function main()
@@ -68,14 +147,15 @@ function main()
 
     s = RGA.TrialGenSpec(
         ;
-        motion_model = motion_model
+        motion_model = motion_model,
+        resolve_steps = 10,
     )
 
-    @time for _ = 1:10
-        (istate, meta, attempts) = sample_scene(s)
-        @show attempts
-        display(meta)
-    end
+    @time trials = [sample_scene(s) for _ = 1:5]
+    exported = export_trials(trials, s)
+
+    open("output/pilot.json", "w") do io; write(io, exported); end
+
 end
 
 
