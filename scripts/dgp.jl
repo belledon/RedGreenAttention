@@ -16,10 +16,6 @@ import RedGreenAttention as RGA
 # 
 
 SceneMeta = @NamedTuple begin
-    t_col          :: Int64
-    r_or_g         :: Vector{Bool}
-    dists          :: Matrix{Float64}
-    to_probe       :: Int64
 end
 
 function rg_score(dists::Matrix{Float64})
@@ -39,48 +35,93 @@ function rg_score(dists::Matrix{Float64})
     idx
 end
 
-function sample_initial_state(s::RGA.TrialGenSpec)
-    istate = RGA.initial_state(s)
+function verify_initial_state(s::RGA.TrialGenSpec, istate::WorldState)
     # Check if both discs are similarly close to red or green
     dists = RGA.rg_dists(istate)
     dist_1, dist_2 = map(minimum, dists)
-    while abs(dist_1 - dist_2) > 40.0 || min(dist_1, dist_2) < 50
+    abs(dist_1 - dist_2) < 40.0 && min(dist_1, dist_2) > 50
+end
+
+function sample_initial_state(s::RGA.TrialGenSpec)
+    istate = RGA.initial_state(s)
+    while !verify_initial_state(s, istate)
         istate = RGA.initial_state(s)
-        dists = RGA.rg_dists(istate)
-        dist_1, dist_2 = map(minimum, dists)
     end
     istate
+end
+
+TrialRecord = @NamedTuple begin
+    r_or_g     :: Vector{Bool}
+    t_col      :: Int64
+    dists      :: Matrix{Float64}
+    to_probe   :: Int64
+end
+
+SceneRecord = @NamedTuple begin
+    istate     :: WorldState
+    c_swap     :: WorldState
+    unswapped  :: TrialRecord
+    c_swapped  :: TrialRecord
+    traj       :: Array{Float64, 3}
+end
+
+function measure_trial(s::RGA.TrialGenSpec,
+                       istate::WorldState)
+    (r_or_g, t_col, last_state, traj) =
+        RGA.run_to_rg_collision(s, istate)
+    dists = RGA.rg_dists(last_state)
+    to_probe = rg_score(dists)
+    TrialRecord((; r_or_g, t_col, dists, to_probe)), traj
 end
 
 function sample_scene(s::RGA.TrialGenSpec)
     
     istate = sample_initial_state(s)
-    (r_or_g, t_col, ws, traj) =
-        RGA.run_to_rg_collision(s, istate)
-    dists = RGA.rg_dists(ws)
-    to_probe = rg_score(dists)
+    unswapped, traj = measure_trial(s, istate)
 
+    # swap rect 1 and 3
+    c_swap = swap_colors(istate)
+    c_swapped, _ = measure_trial(s, c_swap)
+
+    SceneRecord((; istate, c_swap, unswapped, c_swapped, traj))
+end
+
+function verify_trial(s::RGA.TrialGenSpec, sample::TrialRecord)
+    sample.t_col > 90 && any(sample.r_or_g) && sample.to_probe > 0 
+end
+
+function verify_scene(s::RGA.TrialGenSpec, sample::SceneRecord)
+    verify_trial(s, sample.unswapped) &&
+        verify_initial_state(s, sample.c_swap) &&
+        verify_trial(s, sample.c_swapped)
+end
+
+function sample_and_verify_scene(s::RGA.TrialGenSpec)
+    sample = sample_scene(s)
     attempts = 1
-    while t_col < 90 || !any(r_or_g) || to_probe == 0 
-        istate = sample_initial_state(s)
-        (r_or_g, t_col, ws, traj) =
-            RGA.run_to_rg_collision(s, istate)
-        dists = RGA.rg_dists(ws)
-        to_probe = rg_score(dists)
+    while !verify_scene(s, sample)
+        sample = sample_scene(s)
         attempts += 1
-
         if (attempts % 1000) == 0
             @printf "Attempts so far: %d \n" attempts
-            @show t_col
-            @show r_or_g
-            @show to_probe
         end
     end
-
-    meta = SceneMeta((;t_col, r_or_g,
-                     dists, to_probe))
-    (istate, traj, meta)
+    sample
 end
+
+function swap_colors(istate::RGA.WorldState)
+    hit_idx = 1
+    other_idx = 3
+
+    new_static = deepcopy(istate.static)
+    a, b = istate.static[hit_idx], istate.static[other_idx]
+    new_static.objects[hit_idx]  = StaticObject(b.pos, b.shape,
+                                                a.color, b.collides)
+    new_static.objects[other_idx] = StaticObject(a.pos, a.shape,
+                                                 b.color, a.collides)
+    WorldState(istate.dynamic, new_static)
+end
+
 
 const STEP_MS = 1000 / 30.0   # 1 sim step ≈ 1 frame @ 30 Hz
 const PX_PER_UNIT_PER_SEC = 60.0  # vel (units/step) → px/s
@@ -115,11 +156,14 @@ function disc_spec(o::DynamicObject, w::Float64, h::Float64)
      vy = -o.vel[2])   # y-axis flip
 end
 
-function export_trial(istate::WorldState,
-                      frames::Array{Float64, 3},
-                      meta::SceneMeta,
+function export_trial(sample::SceneRecord,
                       s::RGA.TrialGenSpec;
                       probe_interval::Int = 0)
+
+    istate = sample.istate
+    frames = sample.traj
+    meta = sample.unswapped
+    
     w, h = s.motion_model.dimensions
 
     mapped_frames = map(eachslice(frames;dims=3)) do t
@@ -146,8 +190,8 @@ function export_trial(istate::WorldState,
     )
 end
 
-function export_trials(trials::Vector{<:Tuple}, s::RGA.TrialGenSpec; kwargs...)
-    JSON.json([export_trial(t[1], t[2], t[3], s; kwargs...) for t in trials])
+function export_trials(trials::Vector{SceneRecord}, s::RGA.TrialGenSpec; kwargs...)
+    JSON.json([export_trial(t, s; kwargs...) for t in trials])
 end
 
 function main()
@@ -164,7 +208,7 @@ function main()
         resolve_steps = 10,
     )
 
-    @time trials = [sample_scene(s) for _ = 1:5]
+    @time trials = [sample_and_verify_scene(s) for _ = 1:5]
     exported = export_trials(trials, s)
 
     open("output/pilot.json", "w") do io; write(io, exported); end

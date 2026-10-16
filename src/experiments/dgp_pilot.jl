@@ -256,7 +256,6 @@ function rg_dists(last_state::WorldState)
 end
 
 function run_to_rg_collision(s::TrialGenSpec, istate::WorldState)
-    ws = istate
     last_t = 0
     red_or_green = [false, false]
 
@@ -268,9 +267,10 @@ function run_to_rg_collision(s::TrialGenSpec, istate::WorldState)
         traj[2, i, 1] = o.pos[2]
     end
 
+    last_state = istate
     for t = 1:s.max_sim_steps
-        red_or_green, ws = step_motion(s.motion_model, ws)
-        for (i, o) in enumerate(ws.dynamic)
+        red_or_green, last_state = step_motion(s.motion_model, last_state)
+        for (i, o) in enumerate(last_state.dynamic)
             traj[1, i, t+1] = o.pos[1]
             traj[2, i, t+1] = o.pos[2]
         end
@@ -280,7 +280,7 @@ function run_to_rg_collision(s::TrialGenSpec, istate::WorldState)
         end
     end
 
-    red_or_green, last_t, ws, traj[:, :, 1:last_t+1]
+    red_or_green, last_t, last_state, traj[:, :, 1:last_t+1]
 end
 
 
