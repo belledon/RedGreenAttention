@@ -14,10 +14,6 @@ import RedGreenAttention as RGA
 # want to maximize
 #
 # 
-
-SceneMeta = @NamedTuple begin
-end
-
 function rg_score(dists::Matrix{Float64})
     n = size(dists, 2)
     idx = 0
@@ -39,7 +35,8 @@ function verify_initial_state(s::RGA.TrialGenSpec, istate::WorldState)
     # Check if both discs are similarly close to red or green
     dists = RGA.rg_dists(istate)
     dist_1, dist_2 = map(minimum, dists)
-    abs(dist_1 - dist_2) < 40.0 && min(dist_1, dist_2) > 50
+    abs(dist_1 - dist_2) < s.max_init_dist &&
+        min(dist_1, dist_2) > s.min_rg_dist # REVIEW: remove?
 end
 
 function sample_initial_state(s::RGA.TrialGenSpec)
@@ -87,7 +84,9 @@ function sample_scene(s::RGA.TrialGenSpec)
 end
 
 function verify_trial(s::RGA.TrialGenSpec, sample::TrialRecord)
-    sample.t_col > 90 && any(sample.r_or_g) && sample.to_probe > 0 
+    sample.t_col > s.min_t_col &&
+        any(sample.r_or_g) &&
+        sample.to_probe > 0 
 end
 
 function verify_scene(s::RGA.TrialGenSpec, sample::SceneRecord)
@@ -156,7 +155,7 @@ function disc_spec(o::DynamicObject, w::Float64, h::Float64)
      vy = -o.vel[2])   # y-axis flip
 end
 
-function export_trial(sample::SceneRecord,
+function export_scene(sample::SceneRecord,
                       s::RGA.TrialGenSpec;
                       probe_interval::Int = 0)
 
@@ -172,9 +171,25 @@ function export_trial(sample::SceneRecord,
             to_plugin_xy(RGA.S2V(x, y), s.scene_x, s.scene_y)
         end
     end
+
+    trial_1 = export_trial(sample.unswapped, sample.istate, mapped_frames, s;
+                           probe_interval=probe_interval)
+    trial_2 = export_trial(sample.c_swapped, sample.c_swap, mapped_frames, s;
+                           probe_interval=probe_interval)
+    (trial_1, trial_2)
+end
+
+function export_trial(
+    meta::TrialRecord,
+    istate::WorldState,
+    mapped_frames,
+    s::RGA.TrialGenSpec;
+    probe_interval::Int = 0)
     
+    w, h = s.motion_model.dimensions
+
     correct = meta.r_or_g[1] ? "r" : "g"
-    return (
+    (
         rectangles = [rect_spec(o, w, h) for o in istate.static],
         discs      = [disc_spec(o, w, h) for o in istate.dynamic],
         frames     = mapped_frames,
@@ -190,26 +205,37 @@ function export_trial(sample::SceneRecord,
     )
 end
 
-function export_trials(trials::Vector{SceneRecord}, s::RGA.TrialGenSpec; kwargs...)
-    JSON.json([export_trial(t, s; kwargs...) for t in trials])
+function export_trials(scenes::Vector{SceneRecord}, s::RGA.TrialGenSpec; kwargs...)
+    ns = length(scenes)
+    ntrials = 2*ns
+    trials = Vector{NamedTuple}(undef, ntrials)
+    for i = 1:ns
+        (trial_1, trial_2) = export_scene(scenes[i], s; kwargs...)
+        trials[i*2 - 1] = trial_1
+        trials[i*2] = trial_2
+    end
+
+    JSON.json(trials)
 end
 
 function main()
 
     motion_model = RGA.BilliardBrownian(
-        RGA.S2V(720.0, 480.0),
+        RGA.S2V(580, 580),
         0.1,
         0.001,
     )
 
     s = RGA.TrialGenSpec(
         ;
+        scene_x = motion_model.dimensions[1],
+        scene_y = motion_model.dimensions[2],
         motion_model = motion_model,
         resolve_steps = 10,
     )
 
-    @time trials = [sample_and_verify_scene(s) for _ = 1:5]
-    exported = export_trials(trials, s)
+    @time scenes = [sample_and_verify_scene(s) for _ = 1:5]
+    exported = export_trials(scenes, s)
 
     open("output/pilot.json", "w") do io; write(io, exported); end
 

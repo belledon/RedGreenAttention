@@ -3,19 +3,26 @@
     scene_x::Float64 = 720.0
     scene_y::Float64 = 480.0
 
-    min_n_disc::Int = 3
-    max_n_disc::Int = 4
+    "Number of discs"
+    n_disc::Int = 2
     "Disc radius in world units"
     disc_radius::Float64 = 15.0
     disc_vel::Float64 = 5.0
 
-    "Maximum rectangles present"
-    max_rect::Int = 5
-    "Minimum rectangles present"
-    min_rect::Int = 3
+    "Number of rectangles present"
+    n_rect::Int = 5
     "Whether the scene has occluders"
     has_occluder::Bool = false
+    rect_size_min::Float64 = 20.0
+    rect_size_max::Float64 = 200.0
 
+    "Earliest R|G collision can occur"
+    min_t_col::Int = 90
+    "Initial frame should have similar distance to R|G"
+    max_init_dist::Float64 = 40.0
+    "Initial frame should not have discs too close to R|G"
+    min_rg_dist::Float64 = 50.0
+    
 
     # Motion
     resolve_steps::Int = 30
@@ -81,8 +88,8 @@ function resolve_initial_state(s::TrialGenSpec,
 end
 
 @gen function sample_rectangle(s::TrialGenSpec)
-    dx ~ uniform(50.0, 120.0)
-    dy ~ uniform(25.0, 200.0)
+    dx ~ uniform(20.0, 200.0)
+    dy ~ uniform(20.0, 200.0)
     rect = Rectangle(dx, dy, 0.0)
     return rect
 end
@@ -208,21 +215,14 @@ end
 end
 
 @gen function initial_state(s::TrialGenSpec)
-    # nrect ~ uniform_discrete(s.min_rect, s.max_rect)
-    # rectangles ~ Map(sample_rectangle)(Fill(s, nrect))
-    # rect_positions ~ Map(sample_position)(Fill(s, nrect))
-    nrect = 5
-    rectangles = sample_rectangles(nrect, s.scene_x, s.scene_y,
+    rectangles = sample_rectangles(s.nrect, s.scene_x, s.scene_y,
                                    150., 150.0)
     
-    # ndiscs ~ uniform_discrete(s.min_n_disc, s.max_n_disc)
-    ndiscs = 2 
-    disc_positions ~ Map(sample_position)(Fill(s, ndiscs))
-    disc_velocities ~ Map(sample_velocity)(Fill(s, ndiscs))
+    disc_positions ~ Map(sample_position)(Fill(s, s.ndisc))
+    disc_velocities ~ Map(sample_velocity)(Fill(s, s.ndisc))
     
     # run motion forward a few steps to resolve collisions
     istate = resolve_initial_state(s, rectangles,
-                                   # rect_positions,
                                    disc_positions,
                                    disc_velocities)
     return istate
