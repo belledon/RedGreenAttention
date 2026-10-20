@@ -4,16 +4,6 @@ import JSON
 import Colors
 import RedGreenAttention as RGA
 
-# Specs:
-# 1. r-g diff
-# 2. 
-
-# Spec details:
-# r-g diff:
-# the difference in proximity for first disc
-# want to maximize
-#
-# 
 function rg_score(dists::Matrix{Float64})
     n = size(dists, 2)
     idx = 0
@@ -234,7 +224,9 @@ function main()
         resolve_steps = 10,
     )
 
-    @time scenes = [sample_and_verify_scene(s) for _ = 1:5]
+    n_scenes = 1
+
+    @time scenes = [sample_and_verify_scene(s) for _ = 1:n_scenes]
     exported = export_trials(scenes, s)
 
     open("output/pilot.json", "w") do io; write(io, exported); end

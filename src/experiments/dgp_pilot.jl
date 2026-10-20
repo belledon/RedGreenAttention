@@ -215,11 +215,11 @@ end
 end
 
 @gen function initial_state(s::TrialGenSpec)
-    rectangles = sample_rectangles(s.nrect, s.scene_x, s.scene_y,
+    rectangles = sample_rectangles(s.n_rect, s.scene_x, s.scene_y,
                                    150., 150.0)
     
-    disc_positions ~ Map(sample_position)(Fill(s, s.ndisc))
-    disc_velocities ~ Map(sample_velocity)(Fill(s, s.ndisc))
+    disc_positions ~ Map(sample_position)(Fill(s, s.n_disc))
+    disc_velocities ~ Map(sample_velocity)(Fill(s, s.n_disc))
     
     # run motion forward a few steps to resolve collisions
     istate = resolve_initial_state(s, rectangles,
