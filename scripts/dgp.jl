@@ -67,7 +67,7 @@ function sample_scene(s::RGA.TrialGenSpec)
     unswapped, traj = measure_trial(s, istate)
 
     # swap rect 1 and 3
-    c_swap = swap_colors(istate)
+    c_swap = swap_colors(unswapped, istate)
     c_swapped, _ = measure_trial(s, c_swap)
 
     SceneRecord((; istate, c_swap, unswapped, c_swapped, traj))
@@ -98,8 +98,8 @@ function sample_and_verify_scene(s::RGA.TrialGenSpec)
     sample
 end
 
-function swap_colors(istate::RGA.WorldState)
-    hit_idx = 1
+function swap_colors(meta::TrialRecord, istate::RGA.WorldState)
+    hit_idx = meta.r_or_g[1] ? 1 : 2
     other_idx = 3
 
     new_static = deepcopy(istate.static)
